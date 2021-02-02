@@ -3,6 +3,7 @@ package audio
 import (
 	"fmt"
 	"github.com/pion/mediadevices"
+	_ "github.com/pion/mediadevices/pkg/driver/microphone"
 	"github.com/pion/mediadevices/pkg/io/audio"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
@@ -44,7 +45,7 @@ func OpenInputDevice(sampleRate int) (*InputDevice, error) {
 	return &dev, nil
 }
 
-func (input *InputDevice) ReadOpus(stopCh <-chan struct{}) chan<- []byte {
+func (input *InputDevice) ReadOpus(stopCh <-chan struct{}) <-chan []byte {
 	outCh := make(chan []byte, 1000)
 
 	go input.readOpus(stopCh, outCh)
@@ -58,6 +59,7 @@ func (input *InputDevice) readOpus(stopCh <-chan struct{}, opusFrameCh chan []by
 	for {
 		select {
 		case <-stopCh:
+			close(opusFrameCh)
 			return
 		default:
 		}
@@ -73,7 +75,7 @@ func (input *InputDevice) readOpus(stopCh <-chan struct{}, opusFrameCh chan []by
 
 		// Check the frame size. You don't need to do this if you trust your input.
 		frameSize := len(pcm) // must be interleaved if stereo
-		frameSizeMs := float32(frameSize)  * 1000 / float32(input.sampleRate)
+		frameSizeMs := float32(frameSize) * 1000 / float32(input.sampleRate)
 		switch frameSizeMs {
 		case 2.5, 5, 10, 20, 40, 60:
 			// Good.
@@ -87,6 +89,7 @@ func (input *InputDevice) readOpus(stopCh <-chan struct{}, opusFrameCh chan []by
 			panic(err)
 		}
 		data = data[:n] // only the first N bytes are opus data. Just like io.Reader.
+		opusFrameCh <- data
 
 		// release original sample chunk
 		release()
