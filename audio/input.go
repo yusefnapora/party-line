@@ -9,13 +9,15 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
 	"gopkg.in/hraban/opus.v2"
+	"strings"
 )
-
 
 // deviceNames has a mapping from device ID string to friendly name.
 // For some reason, the mediadevices.MediaDeviceInfo doesn't contain the friendly name,
 // so we're grabbing them from the lower-level malgo API.
 var deviceNames map[string]string
+var defaultDeviceId string
+
 func init() {
 	var err error
 	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
@@ -35,7 +37,12 @@ func init() {
 	for _, device := range devices {
 		info, err := ctx.DeviceInfo(malgo.Capture, device.ID, malgo.Shared)
 		if err == nil {
-			deviceNames[device.ID.String()] = info.Name()
+			name := strings.TrimRight(info.Name(), "\u0000") // names are trailed by null byte padding
+			deviceNames[device.ID.String()] = name
+
+			if info.IsDefault != 0 {
+				defaultDeviceId = device.ID.String()
+			}
 		}
 	}
 }
@@ -48,7 +55,8 @@ type InputDevice struct {
 
 type InputDeviceInfo struct {
 	mediadevices.MediaDeviceInfo
-	Name string
+	Name      string
+	IsDefault bool
 }
 
 // TODO: allow opening specific device by id
@@ -144,9 +152,12 @@ func ListInputDevices() []InputDeviceInfo {
 		if !found {
 			name = "unknown"
 		}
+
+		isDefault := defaultDeviceId == dev.Label
 		devices = append(devices, InputDeviceInfo{
 			MediaDeviceInfo: dev,
 			Name:            name,
+			IsDefault:       isDefault,
 		})
 	}
 	return devices

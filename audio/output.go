@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"fmt"
 	"github.com/hajimehoshi/oto"
 	"gopkg.in/hraban/opus.v2"
 )
@@ -68,4 +69,14 @@ func (output *OutputDevice) PlayOpus(data []byte) error {
 		buf = buf[written:]
 	}
 	return err
+}
+
+func (output *OutputDevice) PlayRecording(rec *Recording) error {
+	fmt.Printf("playing recording %s\n", rec.ID)
+	for _, frame := range rec.Frames {
+		if err := output.PlayOpus(frame); err != nil {
+			return err
+		}
+	}
+	return nil
 }
