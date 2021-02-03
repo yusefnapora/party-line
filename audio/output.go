@@ -1,12 +1,9 @@
 package audio
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"github.com/hajimehoshi/oto"
 	"gopkg.in/hraban/opus.v2"
-	"io"
 )
 
 type OutputDevice struct {
@@ -48,7 +45,7 @@ func (output *OutputDevice) Close() error {
 }
 
 func (output *OutputDevice) PlayOpus(data []byte) error {
-	var frameSizeMs float32 = 20  // if you don't know, go with 60 ms.
+	var frameSizeMs float32 = 20 
 	frameSize := frameSizeMs * float32(output.sampleRate) / 1000
 	pcm := make([]int16, int(frameSize))
 	n, err := output.opusDec.Decode(data, pcm)
@@ -56,12 +53,21 @@ func (output *OutputDevice) PlayOpus(data []byte) error {
 		return err
 	}
 
-	buf := make([]byte, n*2))
+	buf := make([]byte, n*2)
 	for i := 0; i < n; i++ {
 		sample := pcm[i]
-		_ = binary.Write(buf, binary.LittleEndian, sample)
+		buf[i*2] = byte(sample)
+		buf[(i*2)+1] = byte(sample >> 8)
 	}
-	fmt.Printf("playing %d samples (%d bytes pcm)\n", n, buf.Len())
-	_, err = io.Copy(output.player, buf)
+	fmt.Printf("playing %d samples (%d bytes pcm)\n", n, len(buf))
+
+	var written = 0
+	for written < n*2 {
+		written, err = output.player.Write(buf)
+		if err != nil {
+			return err
+		}
+		buf = buf[written:]
+	}
 	return err
 }

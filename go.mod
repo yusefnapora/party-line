@@ -3,6 +3,7 @@ module github.com/yusefnapora/party-line
 go 1.15
 
 require (
+	github.com/gen2brain/malgo v0.10.29 // indirect
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/hajimehoshi/oto v0.7.1 // indirect
 	github.com/pion/ice/v2 v2.0.15 // indirect

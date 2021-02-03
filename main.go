@@ -20,20 +20,21 @@ func main() {
 		panic(err)
 	}
 
+	const recTime = time.Second * 5
+	fmt.Printf("recording for %s\n", recTime)
 	stopCh := make(chan struct{})
 	opusCh := dev.ReadOpus(stopCh)
-
-	time.AfterFunc(time.Second * 5, func() {
+	time.AfterFunc(recTime, func() {
 		stopCh <- struct{}{}
 	})
 
 	var opusFrames [][]byte
 	for frame := range opusCh {
-		//fmt.Printf("opus frame size: %d\n", len(frame))
 		opusFrames = append(opusFrames, frame)
 	}
 
 	fmt.Printf("recorded %d opus frames\n", len(opusFrames))
+	fmt.Println("playing back")
 
 	for _, frame := range opusFrames {
 		err = outDev.PlayOpus(frame)

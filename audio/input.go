@@ -89,10 +89,12 @@ func (input *InputDevice) readOpus(stopCh <-chan struct{}, opusFrameCh chan []by
 			panic(err)
 		}
 		data = data[:n] // only the first N bytes are opus data. Just like io.Reader.
-		opusFrameCh <- data
 
 		// release original sample chunk
 		release()
+
+		// send opus frame
+		opusFrameCh <- data
 	}
 }
 
@@ -113,8 +115,9 @@ func getRawAudio(a wave.Audio) []int16 {
 	l := a.ChunkInfo().Len
 	pcm := make([]int16, l)
 	for i := 0; i < l; i++ {
-		sample := wave.Int16SampleFormat.Convert(a.At(i, 0))
-		pcm[i] = int16(sample.Int())
+		orig := a.At(i, 0)
+		sample := wave.Int16SampleFormat.Convert(orig)
+		pcm[i] = int16(sample.(wave.Int16Sample))
 	}
 
 	return pcm
