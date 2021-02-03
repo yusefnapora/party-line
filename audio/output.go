@@ -1,7 +1,6 @@
 package audio
 
 import (
-	"fmt"
 	"github.com/hajimehoshi/oto"
 	"gopkg.in/hraban/opus.v2"
 )
@@ -59,7 +58,6 @@ func (output *OutputDevice) PlayOpus(data []byte) error {
 		buf[i*2] = byte(sample)
 		buf[(i*2)+1] = byte(sample >> 8)
 	}
-	fmt.Printf("playing %d samples (%d bytes pcm)\n", n, len(buf))
 
 	var written = 0
 	for written < n*2 {

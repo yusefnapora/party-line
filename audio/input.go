@@ -2,6 +2,7 @@ package audio
 
 import (
 	"fmt"
+	"github.com/gen2brain/malgo"
 	"github.com/pion/mediadevices"
 	_ "github.com/pion/mediadevices/pkg/driver/microphone"
 	"github.com/pion/mediadevices/pkg/io/audio"
@@ -10,10 +11,44 @@ import (
 	"gopkg.in/hraban/opus.v2"
 )
 
+
+// deviceNames has a mapping from device ID string to friendly name.
+// For some reason, the mediadevices.MediaDeviceInfo doesn't contain the friendly name,
+// so we're grabbing them from the lower-level malgo API.
+var deviceNames map[string]string
+func init() {
+	var err error
+	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
+		panic(fmt.Errorf("%v\n", message))
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	devices, err := ctx.Devices(malgo.Capture)
+	if err != nil {
+		panic(err)
+	}
+
+	deviceNames = make(map[string]string, len(devices))
+
+	for _, device := range devices {
+		info, err := ctx.DeviceInfo(malgo.Capture, device.ID, malgo.Shared)
+		if err == nil {
+			deviceNames[device.ID.String()] = info.Name()
+		}
+	}
+}
+
 type InputDevice struct {
 	sampleRate int
 	opusEnc    *opus.Encoder
 	reader     audio.Reader
+}
+
+type InputDeviceInfo struct {
+	mediadevices.MediaDeviceInfo
+	Name string
 }
 
 // TODO: allow opening specific device by id
@@ -98,13 +133,21 @@ func (input *InputDevice) readOpus(stopCh <-chan struct{}, opusFrameCh chan []by
 	}
 }
 
-func DevicesAvailable() []mediadevices.MediaDeviceInfo {
-	var devices []mediadevices.MediaDeviceInfo
+func ListInputDevices() []InputDeviceInfo {
+	var devices []InputDeviceInfo
 	for _, dev := range mediadevices.EnumerateDevices() {
 		if dev.Kind != mediadevices.AudioInput {
 			continue
 		}
-		devices = append(devices, dev)
+
+		name, found := deviceNames[dev.Label]
+		if !found {
+			name = "unknown"
+		}
+		devices = append(devices, InputDeviceInfo{
+			MediaDeviceInfo: dev,
+			Name:            name,
+		})
 	}
 	return devices
 }

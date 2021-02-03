@@ -10,6 +10,11 @@ const sampleRate = 48000
 
 
 func main() {
+	devices := audio.ListInputDevices()
+	for _, devInfo := range devices {
+		fmt.Printf("input device found: %s, %v\n", devInfo.DeviceID, devInfo)
+	}
+
 	dev, err := audio.OpenInputDevice(sampleRate)
 	if err != nil {
 		panic(err)
