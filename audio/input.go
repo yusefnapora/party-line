@@ -68,7 +68,7 @@ func (input *InputDevice) readOpus(stopCh <-chan struct{}, opusFrameCh chan []by
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("read chunk: %v\n", chunk.ChunkInfo())
+		//fmt.Printf("read chunk: %v\n", chunk.ChunkInfo())
 
 		// convert to int16 and feed into opus encoder
 		pcm := getRawAudio(chunk)
@@ -107,6 +107,7 @@ func DevicesAvailable() []mediadevices.MediaDeviceInfo {
 	return devices
 }
 
+// getRawAudio converts a mediadevices Audio chunk into a buffer of int16 pcm samples
 func getRawAudio(a wave.Audio) []int16 {
 	// TODO: buffer pool?
 	l := a.ChunkInfo().Len
