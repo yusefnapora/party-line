@@ -1,7 +1,9 @@
 package types
 
 import (
+	"github.com/libp2p/go-libp2p-core/peer"
 	"time"
+	pb "github.com/yusefnapora/party-line/p2p/pb"
 )
 
 type InputDeviceInfo struct {
@@ -19,11 +21,84 @@ type UserInfo struct {
 	Nickname string
 }
 
+func UserInfoFromPB(info *pb.UserInfo) (*UserInfo, error) {
+	pid, err := peer.IDFromBytes(info.PeerId)
+	if err != nil {
+		return nil, err
+	}
+	return &UserInfo{
+		PeerID:   pid.Pretty(),
+		Nickname: info.Nickname,
+	}, nil
+}
+
+func (i *UserInfo) ToPB() (*pb.UserInfo, error) {
+	pid, err := peer.Decode(i.PeerID)
+	if err != nil {
+		return nil, err
+	}
+	pidBytes, err := pid.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	return &pb.UserInfo{
+		PeerId:   pidBytes,
+		Nickname: i.Nickname,
+	}, nil
+}
+
 type Message struct {
 	Author      UserInfo
 	SentAtTime  time.Time
 	TextContent string
 	Attachments []MessageAttachment
+}
+
+func MessageFromPB(msg *pb.Message) (*Message, error) {
+	author, err := UserInfoFromPB(msg.Author)
+	if err != nil {
+		return nil, err
+	}
+
+	sentAt := time.Unix(msg.SentAtTimeUnix, 0)
+	attachments := make([]MessageAttachment, len(msg.Attachments))
+	for i, a := range msg.Attachments {
+		attachments[i] = MessageAttachment{
+			ID:      a.Id,
+			Type:    a.Type,
+			Content: a.Content,
+		}
+	}
+
+	return &Message{
+		Author:      *author,
+		SentAtTime:  sentAt,
+		TextContent: msg.TextContent,
+		Attachments: attachments,
+	}, nil
+}
+
+func (m *Message) ToPB() (*pb.Message, error) {
+	author, err := m.Author.ToPB()
+	if err != nil {
+		return nil, err
+	}
+
+	attachments := make([]*pb.Attachment, len(m.Attachments))
+	for i, a := range m.Attachments {
+		attachments[i] = &pb.Attachment{
+			Id:      a.ID,
+			Type:    a.Type,
+			Content: a.Content,
+		}
+	}
+
+	return &pb.Message{
+		Author:         author,
+		SentAtTimeUnix: m.SentAtTime.Unix(),
+		TextContent:    m.TextContent,
+		Attachments:    attachments,
+	}, nil
 }
 
 const (

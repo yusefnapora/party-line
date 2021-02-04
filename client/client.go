@@ -117,6 +117,21 @@ func (c *Client) PublishMessage(msg *types.Message) error {
 	return nil
 }
 
+func (c *Client) GetUserInfo() (*types.UserInfo, error) {
+	url := c.apiBaseUrl + "user-info"
+	resp, err := c.rest.R().EnableTrace().Get(url)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var info types.UserInfo
+	if err = json.Unmarshal(resp.Body(), &info); err != nil {
+		return nil, err
+	}
+	return &info, nil
+}
+
 func removeScheme(url string) string {
 	re, err := regexp.Compile("^http(s)?://")
 	if err != nil {

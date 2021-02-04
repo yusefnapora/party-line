@@ -17,6 +17,7 @@ import (
 
 type Handler struct {
 	pathPrefix string
+	localUser  types.UserInfo
 
 	audioRecorder *audio.Recorder
 	audioStore    *audio.Store
@@ -28,13 +29,14 @@ type Handler struct {
 	dispatcher *Dispatcher
 }
 
-func NewHandler(pathPrefix string, recorder *audio.Recorder, store *audio.Store) (*Handler, error) {
+func NewHandler(pathPrefix string, localUser types.UserInfo, recorder *audio.Recorder, store *audio.Store, dispatcher *Dispatcher) (*Handler, error) {
 
 	h := &Handler{
 		pathPrefix:    pathPrefix,
+		localUser:     localUser,
 		audioRecorder: recorder,
 		audioStore:    store,
-		dispatcher:    NewDispatcher(),
+		dispatcher:    dispatcher,
 		evtListeners:  make(map[string]chan types.Event),
 	}
 
@@ -95,6 +97,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	case "/publish-message":
 		h.PublishMessage(w, r)
+
+	case "/user-info":
+		h.ServeUserInfo(w, r)
 	}
 }
 
@@ -234,6 +239,13 @@ func (h *Handler) PlayRecording(w http.ResponseWriter, r *http.Request) {
 	err := h.audioStore.PlayRecording(req.RecordingID)
 	if err != nil {
 		writeErrorResponse(w, err.Error(), 500)
+	}
+}
+
+func (h *Handler) ServeUserInfo(w http.ResponseWriter, r *http.Request) {
+	enc := json.NewEncoder(w)
+	if err := enc.Encode(h.localUser); err != nil {
+		fmt.Printf("error sending user info: %d", err)
 	}
 }
 

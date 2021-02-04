@@ -2,23 +2,32 @@ package main
 
 import (
 	"fmt"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/maxence-charriere/go-app/v7/pkg/app"
 	"github.com/yusefnapora/party-line/api"
 	"github.com/yusefnapora/party-line/audio"
+	"github.com/yusefnapora/party-line/p2p"
+	"github.com/yusefnapora/party-line/types"
+	ma "github.com/multiformats/go-multiaddr"
+
 	"log"
 	"net/http"
+	"strings"
 )
 
 type PartyLineApp struct {
 	UIServerPort int
 
+	localUser     types.UserInfo
 	audioRecorder *audio.Recorder
-	audioStore *audio.Store
+	audioStore    *audio.Store
 
-	// TODO: libp2p host, etc
+	peer *p2p.PartyLinePeer
+
+	dispatcher *api.Dispatcher
 }
 
-func NewApp(uiPort int) (*PartyLineApp, error) {
+func NewApp(uiPort int, userNick string) (*PartyLineApp, error) {
 	audioStore, err := audio.NewStore()
 	if err != nil {
 		return nil, err
@@ -29,10 +38,25 @@ func NewApp(uiPort int) (*PartyLineApp, error) {
 		return nil, err
 	}
 
+	publishCh := make(chan types.Message, 1024)
+	dispatcher := api.NewDispatcher(publishCh)
+	peer, err := p2p.NewPeer(dispatcher, publishCh, audioStore, userNick)
+	if err != nil {
+		return nil, err
+	}
+
+	localUser := types.UserInfo{
+		PeerID:   peer.PeerID().Pretty(),
+		Nickname: userNick,
+	}
+
 	a := &PartyLineApp{
 		UIServerPort:  uiPort,
+		localUser:     localUser,
 		audioRecorder: recorder,
 		audioStore:    audioStore,
+		dispatcher:    dispatcher,
+		peer:          peer,
 	}
 	return a, nil
 }
@@ -41,9 +65,38 @@ func (a *PartyLineApp) Start() {
 	go a.startUIServer()
 }
 
+func (a *PartyLineApp) ConnectToPeers(pidStrs ...string) {
+	for _, p := range pidStrs {
+
+		var pid peer.ID
+		// treat peer id as a p2p multiadr if it starts with a slash
+		if strings.HasPrefix(p, "/") {
+			fmt.Printf("parsing addr str: %s\n", p)
+			maddr := ma.StringCast(p)
+			fmt.Printf("peer multiaddr: %s\n", maddr.String())
+			pidPtr, err := a.peer.AddPeerAddr(maddr)
+			if err != nil {
+				fmt.Printf("error adding peer addr: %s\n", err)
+			}
+			pid = *pidPtr
+		} else {
+			var err error
+			pid, err = peer.Decode(p)
+			if err != nil {
+				fmt.Printf("error parsing peer id: %s\n", err)
+				continue
+			}
+		}
+
+		if err := a.peer.ConnectToPeer(pid); err != nil {
+			fmt.Printf("connection error: %s\n", err)
+		}
+	}
+}
+
 func (a *PartyLineApp) startUIServer() {
 	fmt.Printf("starting UI server on localhost:%d\n", a.UIServerPort)
-	apiHandler, err := api.NewHandler("/api", a.audioRecorder, a.audioStore)
+	apiHandler, err := api.NewHandler("/api", a.localUser, a.audioRecorder, a.audioStore, a.dispatcher)
 	if err != nil {
 		panic(err)
 	}

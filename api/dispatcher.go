@@ -11,15 +11,18 @@ type Dispatcher struct {
 	incoming chan types.Message
 	outgoing chan types.Message
 
+	publishCh chan<- types.Message
+
 	stop       chan struct{}
 	listeners  map[string]chan types.Event
 	listenerLk sync.Mutex
 }
 
-func NewDispatcher() *Dispatcher {
+func NewDispatcher(publishCh chan<- types.Message) *Dispatcher {
 	d := &Dispatcher{
 		incoming: make(chan types.Message, 1024),
 		outgoing: make(chan types.Message, 1024),
+		publishCh: publishCh,
 		stop:     make(chan struct{}),
 		listeners: make(map[string] chan types.Event),
 	}
@@ -27,6 +30,15 @@ func NewDispatcher() *Dispatcher {
 	go d.loop()
 
 	return d
+}
+
+func (d *Dispatcher) PeerJoined(user *types.UserInfo) {
+	evt := types.Event{
+		Timestamp: time.Now(),
+		EventType: types.EvtUserJoined,
+		Payload:   types.UserJoinedEvent{User: *user},
+	}
+	d.pushToListeners(evt)
 }
 
 func (d *Dispatcher) SendMessage(msg types.Message) {
@@ -81,7 +93,11 @@ func (d *Dispatcher) handleIncoming(msg types.Message) {
 }
 
 func (d *Dispatcher) handleOutgoing(msg types.Message) {
-	// TODO: send via libp2p. for now, we just forward to listeners so the user sees their own message
+	// publish via libp2p
+	d.publishCh <- msg
+
+	// push a "message sent" event to our listeners. this will get forwarded to the UI
+	// so we can display our own messages
 	evt := types.Event{
 		Timestamp: time.Now(),
 		EventType: types.EvtMsgSent,
