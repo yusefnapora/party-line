@@ -53,6 +53,8 @@ func NewPeer(dispatcher *api.Dispatcher, publishCh <-chan types.Message, audioSt
 		},
 	}
 
+	fmt.Printf("setting up libp2p host...\n")
+
 	ctx := context.Background()
 	h, err := libp2p.New(ctx, libp2p.ForceReachabilityPrivate(), libp2p.EnableAutoRelay(),
 		libp2p.StaticRelays(relayInfo), libp2p.EnableHolePunching(),
