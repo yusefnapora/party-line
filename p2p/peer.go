@@ -256,7 +256,7 @@ func (p *PartyLinePeer) readFromStream(r pbio.ReadCloser) {
 			return
 		}
 
-		fmt.Printf("received message from %s (%s)\n", msg.Author.Nickname, msg.Author.PeerId)
+		fmt.Printf("received message from %s\n", msg.Author.Nickname)
 		p.incomingMsgCh <- &msg
 	}
 }
@@ -312,7 +312,7 @@ func (p *PartyLinePeer) incomingMsgLoop() {
 				if err != nil {
 					fmt.Printf("error unpacking audio recording: %s\n", err)
 				} else {
-					fmt.Printf("adding audio recording from message to store\n")
+					fmt.Printf("adding audio recording from message to store. recording id: %s\n", rec.ID)
 					p.audioStore.AddRecording(rec)
 				}
 			}
