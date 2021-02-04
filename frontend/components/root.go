@@ -45,6 +45,11 @@ func (h *RootView) Render() app.UI {
 		},
 	}
 
+	btnClass := "state-not-recording"
+	if h.isRecording {
+		btnClass = "state-recording"
+	}
+
 	return app.Div().Body(
 
 		MessageList(me.PeerID, dummyMessages),
@@ -52,9 +57,8 @@ func (h *RootView) Render() app.UI {
 		app.Div().Body(
 			&MessageInputView{},
 			app.Button().
-				Body(
-					app.If(!h.isRecording, app.Text("Record")).
-						Else(app.Text("Stop"))).
+				Class("recording-button").
+				Class(btnClass).
 				Name("Record").OnClick(h.onClick)),
 
 
@@ -63,6 +67,8 @@ func (h *RootView) Render() app.UI {
 
 func (h *RootView) onClick(ctx app.Context, e app.Event) {
 	app.Log("button clicked")
+
+	recID := ""
 
 	if !h.isRecording {
 		resp, err := h.apiClient.StartAudioRecording()
@@ -74,6 +80,7 @@ func (h *RootView) onClick(ctx app.Context, e app.Event) {
 		h.isRecording = true
 		h.currentRecordingID = resp.RecordingID
 	} else {
+		recID = h.currentRecordingID
 		err := h.apiClient.EndAudioRecording(h.currentRecordingID)
 		if err != nil {
 			app.Log("error stopping recording: %s", err)
@@ -82,7 +89,14 @@ func (h *RootView) onClick(ctx app.Context, e app.Event) {
 
 		h.isRecording = false
 		h.currentRecordingID = ""
+
 	}
 
 	h.Update()
+
+	// TODO: move playback code elsewhere
+	if recID != "" {
+		// TODO: move playback elsewhere
+		go h.apiClient.PlayAudioRecording(recID)
+	}
 }

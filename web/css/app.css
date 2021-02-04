@@ -1,3 +1,11 @@
+@import url(https://weloveiconfonts.com/api/?family=fontawesome);
+
+/* fontawesome */
+[class*="fontawesome-"]:before {
+    font-family: 'FontAwesome', sans-serif;
+}
+
+
 .author-name {
     color: darkslategray;
     padding: 10px;
@@ -30,4 +38,38 @@
     max-width: 600px;
     flex-direction: column;
     justify-content: space-evenly;
+}
+
+.recording-button {
+    width: 35px;
+    height: 35px;
+    font-size: 0;
+    background-color: red;
+    border: 0;
+    border-radius: 35px;
+    margin: 18px;
+    outline: none;
+}
+
+.state-not-recording {
+    background-color: darkred;
+}
+
+.state-recording {
+    animation-name: pulse;
+    animation-duration: 1.5s;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
+}
+
+@keyframes pulse{
+    0%{
+        box-shadow: 0px 0px 5px 0px rgba(173,0,0,.3);
+    }
+    65%{
+        box-shadow: 0px 0px 5px 13px rgba(173,0,0,.3);
+    }
+    90%{
+        box-shadow: 0px 0px 5px 13px rgba(173,0,0,0);
+    }
 }
