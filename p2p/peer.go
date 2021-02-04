@@ -298,7 +298,7 @@ func (p *PartyLinePeer) fanoutLoop() {
 
 func (p *PartyLinePeer) incomingMsgLoop() {
 	for pbMsg := range p.incomingMsgCh {
-		fmt.Printf("received message from incoming channel %v\n", pbMsg)
+		//fmt.Printf("received message from incoming channel %v\n", pbMsg)
 
 		msg, err := types.MessageFromPB(pbMsg)
 		if err != nil {
