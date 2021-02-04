@@ -1,0 +1,33 @@
+.author-name {
+    color: darkslategray;
+    padding: 10px;
+}
+
+.self-message .author-name {
+    color: lightgray;
+}
+
+.message-bubble {
+    border-radius: 20px;
+    padding: 10px;
+}
+
+.self-message {
+    background-color: dodgerblue;
+    color: snow;
+    margin-left: 200px;
+    align-self: flex-end;
+}
+
+.peer-message {
+    background-color: lightgray;
+    align-self: flex-start;
+}
+
+.message-list-view {
+    padding: 40px;
+    display: flex;
+    max-width: 600px;
+    flex-direction: column;
+    justify-content: space-evenly;
+}

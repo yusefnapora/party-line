@@ -20,5 +20,8 @@ func main() {
 		w.SetSize(800, 600, webview.HintNone)
 		w.Navigate(fmt.Sprintf("http://localhost:%d", port))
 		w.Run()
+	} else {
+		// block forever, since the server is running in a background routine & we don't want to quit yet
+		select {}
 	}
 }

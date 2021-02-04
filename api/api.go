@@ -11,7 +11,9 @@ import (
 )
 
 type AppState struct {
-	Me types.UserInfo
+	localUser types.UserInfo
+
+	received []types.Message
 }
 
 type Handler struct {
@@ -27,7 +29,7 @@ func NewHandler(pathPrefix string) (*Handler, error) {
 	}
 
 	return &Handler{
-		pathPrefix: pathPrefix,
+		pathPrefix:    pathPrefix,
 		audioRecorder: recorder,
 	}, nil
 }
@@ -49,6 +51,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	case "/play-recording":
 		h.PlayRecording(w, r)
+
+	case "/peers":
+		h.ListPeers(w, r)
 	}
 }
 
@@ -62,6 +67,14 @@ func (h *Handler) ListAudioInputs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error encoding response", 501)
 		return
 	}
+}
+
+func (h *Handler) ListPeers(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "coming soon", 501)
+}
+
+func (h *Handler) ConnectToPeer(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "coming soon", 501)
 }
 
 func (h *Handler) StartRecording(w http.ResponseWriter, r *http.Request) {
@@ -89,7 +102,6 @@ func (h *Handler) StartRecording(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Printf("response: %v\n", resp)
-
 
 	enc := json.NewEncoder(w)
 	err = enc.Encode(resp)

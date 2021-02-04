@@ -9,12 +9,8 @@ import (
 	"github.com/maxence-charriere/go-app/v7/pkg/app"
 )
 
-// The main function is the entry of the server. It is where the HTTP handler
-// that serves the UI is defined and where the server is started.
-//
-// Note that because main.go and app.go are built for different architectures,
-// this main() function is not in conflict with the one in
-// app.go.
+// StartServer brings up an HTTP server that serves up the frontend. The API used by the frontend is
+// mounted at the /api/ prefix (see api.Handler)
 func StartServer(port int) {
 	apiHandler, err := api.NewHandler("/api")
 	if err != nil {
@@ -30,8 +26,11 @@ func StartServer(port int) {
 	// It implements the http.Handler interface so it can seamlessly be used
 	// with the Go HTTP standard library.
 	mux.Handle("/", &app.Handler{
-		Name:        "Hello",
-		Description: "An Hello World! example",
+		Name:        "NAT Party",
+		Description: "Don't let the NAT block your chat!",
+		Styles: []string{
+			"/web/css/app.css",
+		},
 	})
 
 	err = http.ListenAndServe(fmt.Sprintf(":%d", port), mux)
