@@ -6,14 +6,17 @@ import (
 	"github.com/webview/webview"
 )
 
-const port = 7777
-
 func main() {
-	fmt.Printf("starting app server on port %d\n", port)
-	go StartServer(port)
 
+	port := flag.Int("ui-port", 7777, "port number for backend / frontend comms")
 	headless := flag.Bool("headless", false, "don't open a webview on start")
 	flag.Parse()
+
+	a, err := NewApp(*port)
+	if err != nil {
+		panic(err)
+	}
+	a.Start()
 
 	if !*headless {
 		debug := true

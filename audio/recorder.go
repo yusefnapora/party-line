@@ -3,8 +3,6 @@ package audio
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"sync"
 	"time"
 
 	"github.com/tevino/abool"
@@ -30,33 +28,24 @@ func RecordingFromJSON(b []byte) (*Recording, error) {
 
 type Recorder struct {
 	recording abool.AtomicBool
-	stateLk sync.Mutex
-	recordings map[string]*Recording
 	stopCh chan struct{}
 
 	inputDevice *InputDevice
 
-	// TODO: move playback outside of Recorder
-	outputDevice *OutputDevice
+	store *Store
 }
 
 const sampleRate = 48000
 
-func NewRecorder() (*Recorder, error){
+func NewRecorder(store *Store) (*Recorder, error){
 	inputDevice, err := OpenInputDevice(sampleRate)
 	if err != nil {
 		panic(err)
 	}
 
-	outputDevice, err := OpenOutputDevice(sampleRate)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Recorder{
 		inputDevice: inputDevice,
-		outputDevice: outputDevice,
-		recordings: make(map[string]*Recording),
+		store: store,
 	}, nil
 }
 
@@ -65,13 +54,9 @@ func (r *Recorder) BeginRecording(maxDuration time.Duration) (string, error) {
 	if r.recording.IsSet() {
 		return "", fmt.Errorf("recording already in progress")
 	}
-	r.stateLk.Lock()
 	r.recording.Set()
-	defer r.stateLk.Unlock()
 
-	id := uuid.New().String()
-	rec := &Recording{ID: id}
-	r.recordings[id] = rec
+	rec := r.store.NewLocalRecording()
 	r.stopCh = make(chan struct{})
 
 	if maxDuration != 0 {
@@ -81,8 +66,7 @@ func (r *Recorder) BeginRecording(maxDuration time.Duration) (string, error) {
 	}
 
 	go r.doRecording(rec)
-
-	return id, nil
+	return rec.ID, nil
 }
 
 func (r *Recorder) doRecording(rec *Recording) {
@@ -101,20 +85,4 @@ func (r *Recorder) StopRecording() error {
 	}
 	r.stopCh <- struct{}{}
 	return nil
-}
-
-
-func (r *Recorder) PlayRecording(id string) error {
-	rec, ok := r.GetRecording(id)
-	if !ok {
-		return fmt.Errorf("no recording found with id %s", id)
-	}
-	return r.outputDevice.PlayRecording(rec)
-}
-
-func (r *Recorder) GetRecording(id string) (*Recording, bool) {
-	r.stateLk.Lock()
-	defer r.stateLk.Unlock()
-	rec, ok := r.recordings[id]
-	return rec, ok
 }

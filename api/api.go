@@ -15,11 +15,11 @@ import (
 	"time"
 )
 
-
 type Handler struct {
 	pathPrefix string
 
 	audioRecorder *audio.Recorder
+	audioStore    *audio.Store
 
 	eventCh      <-chan types.Event
 	evtListeners map[string]chan types.Event
@@ -28,17 +28,14 @@ type Handler struct {
 	dispatcher *Dispatcher
 }
 
-func NewHandler(pathPrefix string) (*Handler, error) {
-	recorder, err := audio.NewRecorder()
-	if err != nil {
-		return nil, err
-	}
+func NewHandler(pathPrefix string, recorder *audio.Recorder, store *audio.Store) (*Handler, error) {
 
 	h := &Handler{
 		pathPrefix:    pathPrefix,
 		audioRecorder: recorder,
-		dispatcher: NewDispatcher(),
-		evtListeners: make(map[string] chan types.Event),
+		audioStore:    store,
+		dispatcher:    NewDispatcher(),
+		evtListeners:  make(map[string]chan types.Event),
 	}
 
 	h.eventCh = h.dispatcher.AddListener("api-handler")
@@ -234,7 +231,7 @@ func (h *Handler) PlayRecording(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, fmt.Sprintf("error decoding request: %s", err), 400)
 	}
 
-	err := h.audioRecorder.PlayRecording(req.RecordingID)
+	err := h.audioStore.PlayRecording(req.RecordingID)
 	if err != nil {
 		writeErrorResponse(w, err.Error(), 500)
 	}
