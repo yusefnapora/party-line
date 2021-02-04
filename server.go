@@ -31,6 +31,9 @@ func StartServer(port int) {
 		Styles: []string{
 			"/web/css/app.css",
 		},
+		RawHeaders: []string{
+			`<script src="https://kit.fontawesome.com/718ec8aa25.js" crossorigin="anonymous"></script>`,
+		},
 	})
 
 	err = http.ListenAndServe(fmt.Sprintf(":%d", port), mux)

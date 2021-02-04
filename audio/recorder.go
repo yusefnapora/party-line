@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"sync"
@@ -12,6 +13,19 @@ import (
 type Recording struct {
 	ID string
 	Frames [][]byte
+}
+
+func (r *Recording) ToJSON() ([]byte, error) {
+	return json.Marshal(r)
+}
+
+func RecordingFromJSON(b []byte) (*Recording, error) {
+	var r Recording
+	err := json.Unmarshal(b, &r)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
 }
 
 type Recorder struct {
@@ -91,12 +105,16 @@ func (r *Recorder) StopRecording() error {
 
 
 func (r *Recorder) PlayRecording(id string) error {
-	fmt.Printf("Recorder.PlayRecording: %s\n", id)
-	r.stateLk.Lock()
-	defer r.stateLk.Unlock()
-	rec, ok := r.recordings[id]
+	rec, ok := r.GetRecording(id)
 	if !ok {
 		return fmt.Errorf("no recording found with id %s", id)
 	}
 	return r.outputDevice.PlayRecording(rec)
+}
+
+func (r *Recorder) GetRecording(id string) (*Recording, bool) {
+	r.stateLk.Lock()
+	defer r.stateLk.Unlock()
+	rec, ok := r.recordings[id]
+	return rec, ok
 }

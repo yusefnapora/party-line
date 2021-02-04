@@ -127,14 +127,37 @@ func (h *Handler) PublishMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dec := json.NewDecoder(r.Body)
-	req := types.Message{}
-	if err := dec.Decode(&req); err != nil {
+	msg := types.Message{}
+	if err := dec.Decode(&msg); err != nil {
 		writeErrorResponse(w, fmt.Sprintf("error decoding request: %s", err), 400)
 		return
 	}
 
-	// TODO: if message has an audio attachment, get the audio data by recording ID and add it to the message
-	h.dispatcher.SendMessage(req)
+	// if message has an audio attachment, get the audio data by recording ID and add it to the message
+	//for i := 0; i < len(msg.Attachments); i++ {
+	//	a := msg.Attachments[i]
+	//	if len(a.Content) > 0 {
+	//		continue
+	//	}
+	//	if a.Type != types.AttachmentTypeAudioOpus {
+	//		continue
+	//	}
+	//
+	//	recording, ok := h.audioRecorder.GetRecording(a.ID)
+	//	if !ok {
+	//		fmt.Printf("attachment has recording id %s, but not found locally\n", a.ID)
+	//		continue
+	//	}
+	//	serialized, err := recording.ToJSON()
+	//	if err != nil {
+	//		fmt.Printf("error serializing audio recording: %s", err)
+	//		continue
+	//	}
+	//	a.Content = serialized
+	//}
+
+
+	h.dispatcher.SendMessage(msg)
 	writeEmptyOk(w)
 }
 

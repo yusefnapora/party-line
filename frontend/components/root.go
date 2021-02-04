@@ -27,8 +27,8 @@ type RootView struct {
 
 func Root(apiClient *client.Client, me types.UserInfo) *RootView {
 	return &RootView{
-		apiClient: apiClient,
-		me: me,
+		apiClient:       apiClient,
+		me:              me,
 		messageListView: MessageList(me.PeerID, nil),
 	}
 }
@@ -133,7 +133,8 @@ func (v *RootView) Render() app.UI {
 			app.Button().
 				Class("recording-button").
 				Class(btnClass).
-				Name("Record").OnClick(v.onClick)),
+				OnClick(v.onClick).
+				Body(Icon("fas fa-microphone").Color("white"))),
 	)
 }
 
@@ -166,8 +167,27 @@ func (v *RootView) onClick(ctx app.Context, e app.Event) {
 
 	v.Update()
 
-	// TODO: move playback code elsewhere
+	// TODO: move playback & send code elsewhere?
 	if recID != "" {
 		go v.apiClient.PlayAudioRecording(recID)
+		if err := v.sendAudioMessage(recID); err != nil {
+			app.Log("error sending audio message: %s", err)
+		}
 	}
+}
+
+func (v *RootView) sendAudioMessage(recordingID string) error {
+	a := types.MessageAttachment{
+		ID:      recordingID,
+		Type:    types.AttachmentTypeAudioOpus,
+		Content: nil, // will be filled in on the server by matching the Recording ID
+	}
+
+	msg := types.Message{
+		Author:      v.me,
+		SentAtTime:  time.Now(),
+		Attachments: []types.MessageAttachment{a},
+	}
+
+	return v.sendMessage(&msg)
 }

@@ -20,7 +20,7 @@ func main() {
 		w := webview.New(debug)
 		defer w.Destroy()
 		w.SetTitle("NAT Party")
-		w.SetSize(800, 600, webview.HintNone)
+		w.SetSize(1200, 800, webview.HintNone)
 		w.Navigate(fmt.Sprintf("http://localhost:%d", port))
 		w.Run()
 	} else {

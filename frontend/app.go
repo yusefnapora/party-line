@@ -13,6 +13,7 @@ import (
 	"github.com/yusefnapora/party-line/client"
 	"github.com/yusefnapora/party-line/frontend/components"
 	"github.com/yusefnapora/party-line/types"
+	"strings"
 )
 
 
@@ -21,9 +22,10 @@ import (
 // associated with URL paths and where the UI is started.
 func main() {
 	// get the localhost addr from javascript so we don't have to hardcode it
-	scheme := app.Window().Get("location").Get("protocol")
+	scheme := app.Window().Get("location").Get("protocol").String()
+	scheme = strings.TrimRight(scheme, ":")
 	host := app.Window().Get("location").Get("host").String()
-	url := fmt.Sprintf("%s//%s", scheme, host)
+	url := fmt.Sprintf("%s://%s", scheme, host)
 	app.Log("making client with root url %s", url)
 
 	apiClient, err := client.NewClient(url)

@@ -44,12 +44,14 @@
 .recording-button {
     width: 35px;
     height: 35px;
-    font-size: 0;
     background-color: red;
     border: 0;
     border-radius: 35px;
     margin: 18px;
     outline: none;
+    text-align: center;
+    vertical-align: middle;
+    line-height: 35px;
 }
 
 .state-not-recording {
