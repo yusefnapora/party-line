@@ -13,7 +13,7 @@ type MessageListView struct {
 	localPeerID string
 
 	msgLk    sync.RWMutex
-	messages []types.Message
+	messages []*types.Message
 }
 
 func (v *MessageListView) Render() app.UI {
@@ -30,17 +30,24 @@ func (v *MessageListView) Render() app.UI {
 		}))
 }
 
-func MessageList(localPeer string, messages []types.Message) *MessageListView {
+func MessageList(localPeer string, messages []*types.Message) *MessageListView {
 	return &MessageListView{
 		localPeerID: localPeer,
 		messages:    messages,
 	}
 }
 
+func (v *MessageListView) AddMessage(msg *types.Message) {
+	v.msgLk.Lock()
+	defer v.msgLk.Unlock()
+	v.messages = append(v.messages, msg)
+	v.Update()
+}
+
 type MessageView struct {
 	app.Compo
 
-	msg      types.Message
+	msg      *types.Message
 	fromSelf bool
 }
 

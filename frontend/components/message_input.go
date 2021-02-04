@@ -7,6 +7,13 @@ type MessageInputView struct {
 
 	textContent string
 
+	onSubmit func(string)
+}
+
+func MessageInput(onSubmit func(string)) *MessageInputView {
+	return &MessageInputView{
+		onSubmit: onSubmit,
+	}
 }
 
 func (v *MessageInputView) Render() app.UI {
@@ -17,6 +24,9 @@ func (v *MessageInputView) Render() app.UI {
 }
 
 func (v *MessageInputView) onChange(ctx app.Context, e app.Event) {
-	v.textContent = ctx.JSSrc.Get("value").String()
-	app.Log("message content: %s", v.textContent)
+	text := ctx.JSSrc.Get("value").String()
+	v.onSubmit(text)
+
+	// clear input text
+	ctx.JSSrc.Set("value", "")
 }

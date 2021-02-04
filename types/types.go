@@ -31,6 +31,7 @@ const (
 )
 
 type MessageAttachment struct {
+	ID      string
 	Type    string
 	Content []byte
 }
@@ -66,14 +67,30 @@ type PlayAudioRecordingRequest struct {
 	RecordingID string
 }
 
+type Event struct {
+	Timestamp time.Time
+	EventType string
+	Payload interface{}
+}
+
+const (
+	EvtUserJoined = "user-joined"
+	EvtMsgReceived = "msg-received"
+	EvtMsgSent = "msg-sent"
+)
+
+
 // UserJoinedEvent is pushed to the frontend via websockets when we connect to a new peer.
 type UserJoinedEvent struct {
 	User UserInfo
-	Timestamp time.Time
 }
 
 // MessageReceivedEvent is pushed to the frontend via websockets when we get a message from a peer.
 type MessageReceivedEvent struct {
 	Message Message
-	Timestamp time.Time
+}
+
+// MessageSentEvent is pushed to the frontend via websockets when one of our own messages is sent to our peers successfully.
+type MessageSentEvent struct {
+	Message Message
 }

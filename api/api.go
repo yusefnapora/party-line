@@ -1,25 +1,31 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/yusefnapora/party-line/audio"
 	"github.com/yusefnapora/party-line/types"
 	"net/http"
+	"nhooyr.io/websocket"
+	"nhooyr.io/websocket/wsjson"
 	"strings"
+	"sync"
 	"time"
 )
 
-type AppState struct {
-	localUser types.UserInfo
-
-	received []types.Message
-}
 
 type Handler struct {
 	pathPrefix string
 
 	audioRecorder *audio.Recorder
+
+	eventCh      <-chan types.Event
+	evtListeners map[string]chan types.Event
+	listenerLk   sync.Mutex
+
+	dispatcher *Dispatcher
 }
 
 func NewHandler(pathPrefix string) (*Handler, error) {
@@ -28,10 +34,42 @@ func NewHandler(pathPrefix string) (*Handler, error) {
 		return nil, err
 	}
 
-	return &Handler{
+	h := &Handler{
 		pathPrefix:    pathPrefix,
 		audioRecorder: recorder,
-	}, nil
+		dispatcher: NewDispatcher(),
+		evtListeners: make(map[string] chan types.Event),
+	}
+
+	h.eventCh = h.dispatcher.AddListener("api-handler")
+	go h.fanoutEvents()
+
+	return h, nil
+}
+
+func (h *Handler) addEventListener(id string, ch chan types.Event) {
+	h.listenerLk.Lock()
+	defer h.listenerLk.Unlock()
+
+	h.evtListeners[id] = ch
+}
+
+func (h *Handler) removeEventListener(id string) {
+	h.listenerLk.Lock()
+	defer h.listenerLk.Unlock()
+
+	delete(h.evtListeners, id)
+}
+
+func (h *Handler) fanoutEvents() {
+	for evt := range h.eventCh {
+		fmt.Printf("pushing event to websocket listeners: %v\n", evt)
+		h.listenerLk.Lock()
+		for _, listenerCh := range h.evtListeners {
+			listenerCh <- evt
+		}
+		h.listenerLk.Unlock()
+	}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -54,6 +92,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	case "/peers":
 		h.ListPeers(w, r)
+
+	case "/subscribe-events":
+		h.SubscribeEvents(w, r)
+
+	case "/publish-message":
+		h.PublishMessage(w, r)
 	}
 }
 
@@ -75,6 +119,55 @@ func (h *Handler) ListPeers(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ConnectToPeer(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "coming soon", 501)
+}
+
+func (h *Handler) PublishMessage(w http.ResponseWriter, r *http.Request) {
+	if ensureMethod("POST", w, r) {
+		return
+	}
+
+	dec := json.NewDecoder(r.Body)
+	req := types.Message{}
+	if err := dec.Decode(&req); err != nil {
+		writeErrorResponse(w, fmt.Sprintf("error decoding request: %s", err), 400)
+		return
+	}
+
+	// TODO: if message has an audio attachment, get the audio data by recording ID and add it to the message
+	h.dispatcher.SendMessage(req)
+	writeEmptyOk(w)
+}
+
+func (h *Handler) SubscribeEvents(w http.ResponseWriter, r *http.Request) {
+	c, err := websocket.Accept(w, r, nil)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("websocket error: %s", err), 400)
+		return
+	}
+
+	fmt.Printf("new websocket conn\n")
+
+	listenerID := uuid.New().String()
+	eventCh := make(chan types.Event, 100)
+	h.addEventListener(listenerID, eventCh)
+	fmt.Printf("SubscribeEvents added listener [%s] for websocket updates\n", listenerID)
+
+	go h.websocketPush(c, eventCh)
+}
+
+func (h *Handler) websocketPush(ws *websocket.Conn, eventCh chan types.Event) {
+	defer ws.Close(websocket.StatusInternalError, "the sky is falling")
+
+	for evt := range eventCh {
+		fmt.Printf("sending message on websocket: %v\n", evt)
+
+		err := wsjson.Write(context.Background(), ws, evt)
+		if err != nil {
+			fmt.Printf("send error: %s", err)
+		}
+	}
+
+	ws.Close(websocket.StatusNormalClosure, "")
 }
 
 func (h *Handler) StartRecording(w http.ResponseWriter, r *http.Request) {

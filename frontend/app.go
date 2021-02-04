@@ -8,9 +8,11 @@ package main
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/maxence-charriere/go-app/v7/pkg/app"
 	"github.com/yusefnapora/party-line/client"
 	"github.com/yusefnapora/party-line/frontend/components"
+	"github.com/yusefnapora/party-line/types"
 )
 
 
@@ -24,7 +26,13 @@ func main() {
 		panic(err)
 	}
 
-	root := components.Root(apiClient)
+	// TODO: generate real peer id server side & send to client via api
+	user := types.UserInfo{
+		PeerID:  "fake-peer-" + uuid.New().String(),
+		Nickname: "yusef",
+	}
+
+	root := components.Root(apiClient, user)
 
 	app.Route("/", root) // rootComponent component is associated with URL path "/".
 	app.Run()                // Launches the PWA.
