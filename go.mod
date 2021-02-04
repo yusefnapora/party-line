@@ -12,6 +12,7 @@ require (
 	github.com/pion/mediadevices v0.1.14
 	github.com/pion/webrtc/v3 v3.0.4 // indirect
 	github.com/tevino/abool v1.2.0 // indirect
+	github.com/webview/webview v0.0.0-20210201104136-ce27be3bc811 // indirect
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
 	golang.org/x/image v0.0.0-20201208152932-35266b937fa6 // indirect
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777 // indirect

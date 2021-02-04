@@ -1,12 +1,17 @@
-package api
+package types
 
 import (
-	"github.com/yusefnapora/party-line/audio"
 	"time"
 )
 
+type InputDeviceInfo struct {
+	DeviceID  string
+	Name      string
+	IsDefault bool
+}
+
 type InputDeviceList struct {
-	Devices []audio.InputDeviceInfo
+	Devices []InputDeviceInfo
 }
 
 type UserInfo struct {
@@ -35,12 +40,12 @@ type BeginAudioRecordingRequest struct {
 	// MaxDuration is a time.ParseDuration compatible string that limits the recording to the given
 	// duration. If unset, there is no max, and the recording must be stopped manually with a
 	// StopAudioRecordingRequest
-	MaxDuration string
+	MaxDuration string `json:",omitempty"`
 }
 
 type GenericResponse struct {
 	// Error is non-empty if something failed.
-	Error string
+	Error string `json:",omitempty"`
 }
 
 type BeginAudioRecordingResponse struct {

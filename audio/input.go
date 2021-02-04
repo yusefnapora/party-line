@@ -8,6 +8,7 @@ import (
 	"github.com/pion/mediadevices/pkg/io/audio"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
+	"github.com/yusefnapora/party-line/types"
 	"gopkg.in/hraban/opus.v2"
 	"strings"
 )
@@ -51,12 +52,6 @@ type InputDevice struct {
 	sampleRate int
 	opusEnc    *opus.Encoder
 	reader     audio.Reader
-}
-
-type InputDeviceInfo struct {
-	mediadevices.MediaDeviceInfo
-	Name      string
-	IsDefault bool
 }
 
 // TODO: allow opening specific device by id
@@ -141,8 +136,8 @@ func (input *InputDevice) readOpus(stopCh <-chan struct{}, opusFrameCh chan []by
 	}
 }
 
-func ListInputDevices() []InputDeviceInfo {
-	var devices []InputDeviceInfo
+func ListInputDevices() []types.InputDeviceInfo {
+	var devices []types.InputDeviceInfo
 	for _, dev := range mediadevices.EnumerateDevices() {
 		if dev.Kind != mediadevices.AudioInput {
 			continue
@@ -154,10 +149,10 @@ func ListInputDevices() []InputDeviceInfo {
 		}
 
 		isDefault := defaultDeviceId == dev.Label
-		devices = append(devices, InputDeviceInfo{
-			MediaDeviceInfo: dev,
-			Name:            name,
-			IsDefault:       isDefault,
+		devices = append(devices, types.InputDeviceInfo{
+			DeviceID:  dev.Label,
+			Name:      name,
+			IsDefault: isDefault,
 		})
 	}
 	return devices

@@ -2,14 +2,23 @@ package main
 
 import (
 	"fmt"
+	"github.com/webview/webview"
 )
 
-const sampleRate = 48000
-
+const openWebview = false
+const port = 7777
 
 func main() {
-
-	const port = 7777
 	fmt.Printf("starting app server on port %d\n", port)
-	StartServer(port)
+	go StartServer(port)
+
+	if openWebview {
+		debug := true
+		w := webview.New(debug)
+		defer w.Destroy()
+		w.SetTitle("NAT Party")
+		w.SetSize(800, 600, webview.HintNone)
+		w.Navigate(fmt.Sprintf("http://localhost:%d", port))
+		w.Run()
+	}
 }
