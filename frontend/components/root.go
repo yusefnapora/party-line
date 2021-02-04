@@ -26,11 +26,12 @@ type RootView struct {
 }
 
 func Root(apiClient *client.Client, me types.UserInfo) *RootView {
-	return &RootView{
+	v := &RootView{
 		apiClient:       apiClient,
 		me:              me,
-		messageListView: MessageList(me.PeerID, nil),
 	}
+	v.messageListView = MessageList(me.PeerID, nil, v.handleAttachmentClick)
+	return v
 }
 
 func (v *RootView) OnMount(ctx app.Context) {
@@ -80,6 +81,17 @@ func (v *RootView) handleRemoteEvent(evt types.Event) {
 
 	case types.EvtUserJoined:
 		// TODO
+	}
+}
+
+func (v *RootView) handleAttachmentClick(a *types.MessageAttachment) {
+	app.Log("attachment clicked %v", a)
+	if a.Type != types.AttachmentTypeAudioOpus {
+		return
+	}
+
+	if err := v.apiClient.PlayAudioRecording(a.ID); err != nil {
+		app.Log("error playing attachment: %s", err)
 	}
 }
 

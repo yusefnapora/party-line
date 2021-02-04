@@ -63,7 +63,7 @@ func (h *Handler) removeEventListener(id string) {
 
 func (h *Handler) fanoutEvents() {
 	for evt := range h.eventCh {
-		fmt.Printf("pushing event to websocket listeners: %v\n", evt)
+		//fmt.Printf("pushing event to websocket listeners: %v\n", evt)
 		h.listenerLk.Lock()
 		for _, listenerCh := range h.evtListeners {
 			listenerCh <- evt
@@ -133,30 +133,6 @@ func (h *Handler) PublishMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// if message has an audio attachment, get the audio data by recording ID and add it to the message
-	//for i := 0; i < len(msg.Attachments); i++ {
-	//	a := msg.Attachments[i]
-	//	if len(a.Content) > 0 {
-	//		continue
-	//	}
-	//	if a.Type != types.AttachmentTypeAudioOpus {
-	//		continue
-	//	}
-	//
-	//	recording, ok := h.audioRecorder.GetRecording(a.ID)
-	//	if !ok {
-	//		fmt.Printf("attachment has recording id %s, but not found locally\n", a.ID)
-	//		continue
-	//	}
-	//	serialized, err := recording.ToJSON()
-	//	if err != nil {
-	//		fmt.Printf("error serializing audio recording: %s", err)
-	//		continue
-	//	}
-	//	a.Content = serialized
-	//}
-
-
 	h.dispatcher.SendMessage(msg)
 	writeEmptyOk(w)
 }
@@ -182,7 +158,7 @@ func (h *Handler) websocketPush(ws *websocket.Conn, eventCh chan types.Event) {
 	defer ws.Close(websocket.StatusInternalError, "the sky is falling")
 
 	for evt := range eventCh {
-		fmt.Printf("sending message on websocket: %v\n", evt)
+		//fmt.Printf("sending message on websocket: %v\n", evt)
 
 		err := wsjson.Write(context.Background(), ws, evt)
 		if err != nil {

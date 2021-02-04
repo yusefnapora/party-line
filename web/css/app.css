@@ -19,6 +19,10 @@
     border-radius: 20px;
     padding: 10px;
     margin: 10px;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .self-message {

@@ -7,6 +7,8 @@ import (
 	"sync"
 )
 
+type attachmentClickHandler func (attachment *types.MessageAttachment)
+
 type MessageListView struct {
 	app.Compo
 
@@ -14,6 +16,8 @@ type MessageListView struct {
 
 	msgLk    sync.RWMutex
 	messages []*types.Message
+
+	onAttachmentClick attachmentClickHandler
 }
 
 func (v *MessageListView) Render() app.UI {
@@ -26,14 +30,16 @@ func (v *MessageListView) Render() app.UI {
 			return &MessageView{
 				msg:      msg,
 				fromSelf: msg.Author.PeerID == v.localPeerID,
+				onAttachmentClick: v.onAttachmentClick,
 			}
 		}))
 }
 
-func MessageList(localPeer string, messages []*types.Message) *MessageListView {
+func MessageList(localPeer string, messages []*types.Message, onAttachmentClick attachmentClickHandler) *MessageListView {
 	return &MessageListView{
 		localPeerID: localPeer,
 		messages:    messages,
+		onAttachmentClick: onAttachmentClick,
 	}
 }
 
@@ -49,6 +55,8 @@ type MessageView struct {
 
 	msg      *types.Message
 	fromSelf bool
+
+	onAttachmentClick attachmentClickHandler
 }
 
 func (v *MessageView) Render() app.UI {
@@ -66,5 +74,31 @@ func (v *MessageView) Render() app.UI {
 			).Class("author-name"),
 
 			app.Text(v.msg.TextContent),
-		)
+
+			app.If(len(v.msg.Attachments) > 0, app.Range(v.msg.Attachments).Slice(func (i int) app.UI {
+				a := v.msg.Attachments[i]
+				return &MessageAttachmentView{attachment: &a, clickHandler: v.onAttachmentClick}
+			})))
+}
+
+
+type MessageAttachmentView struct {
+	app.Compo
+	attachment *types.MessageAttachment
+	clickHandler attachmentClickHandler
+}
+
+func (v *MessageAttachmentView) Render() app.UI {
+	if v.attachment.Type != types.AttachmentTypeAudioOpus {
+		return app.Div()
+	}
+
+	return app.Div().
+		Body(Icon("fas fa-file-audio")).OnClick(v.onClick)
+}
+
+func (v *MessageAttachmentView) onClick(ctx app.Context, e app.Event) {
+	if v.clickHandler != nil {
+		v.clickHandler(v.attachment)
+	}
 }
