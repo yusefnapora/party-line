@@ -1,18 +1,21 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/webview/webview"
 )
 
-const openWebview = false
 const port = 7777
 
 func main() {
 	fmt.Printf("starting app server on port %d\n", port)
 	go StartServer(port)
 
-	if openWebview {
+	headless := flag.Bool("headless", false, "don't open a webview on start")
+	flag.Parse()
+
+	if !*headless {
 		debug := true
 		w := webview.New(debug)
 		defer w.Destroy()

@@ -20,8 +20,13 @@ import (
 // The main function is the entry point of the UI. It is where components are
 // associated with URL paths and where the UI is started.
 func main() {
-	const port = 7777
-	apiClient, err := client.NewClient(fmt.Sprintf("http://localhost:%d", port))
+	// get the localhost addr from javascript so we don't have to hardcode it
+	scheme := app.Window().Get("location").Get("protocol")
+	host := app.Window().Get("location").Get("host").String()
+	url := fmt.Sprintf("%s//%s", scheme, host)
+	app.Log("making client with root url %s", url)
+
+	apiClient, err := client.NewClient(url)
 	if err != nil {
 		panic(err)
 	}

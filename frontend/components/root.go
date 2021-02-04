@@ -70,7 +70,6 @@ func (v *RootView) handleRemoteEvent(evt types.Event) {
 	case types.EvtMsgReceived:
 		fallthrough
 	case types.EvtMsgSent:
-
 		m := evt.Payload.(map[string]interface{})
 		msg, err := msgFromMap(m)
 		if err != nil {
