@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gogo/protobuf/proto"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/event"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-tcp-transport"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/yusefnapora/party-line/api"
@@ -19,7 +19,6 @@ import (
 	"github.com/yusefnapora/party-line/types"
 	"sync"
 	"time"
-	dht "github.com/libp2p/go-libp2p-kad-dht"
 
 	pbio "github.com/gogo/protobuf/io"
 )
@@ -67,6 +66,8 @@ func NewPeer(dispatcher *api.Dispatcher, publishCh <-chan types.Message, audioSt
 		publishCh:  publishCh,
 		dispatcher: dispatcher,
 		audioStore: audioStore,
+		fanout: make(map[string] chan *pb.Message),
+		incomingMsgCh: make(chan *pb.Message, 1024),
 	}
 
 	peer.localUser = types.UserInfo{
@@ -74,7 +75,7 @@ func NewPeer(dispatcher *api.Dispatcher, publishCh <-chan types.Message, audioSt
 		Nickname: userNick,
 	}
 
-	h.SetStreamHandler(protocolID, peer.handleStream)
+	h.SetStreamHandler(protocolID, peer.handleIncomingStream)
 
 	go peer.fanoutLoop()
 	go peer.incomingMsgLoop()
@@ -147,7 +148,7 @@ func (p *PartyLinePeer) ConnectToPeer(pid peer.ID) error {
 		return err
 	}
 
-	p.handleStream(s)
+	p.handleStream(s, false)
 	return nil
 }
 
@@ -163,69 +164,98 @@ func (p *PartyLinePeer) AddPeerAddr(addr ma.Multiaddr) (*peer.ID, error) {
 	return &ai.ID, nil
 }
 
-func (p *PartyLinePeer) handleStream(s network.Stream) {
+
+func (p *PartyLinePeer) handleIncomingStream(s network.Stream) {
+	p.handleStream(s, true)
+}
+
+func (p *PartyLinePeer) handleStream(s network.Stream, inbound bool) {
 	fmt.Printf("new stream with peer %s via %v\n", s.Conn().RemotePeer().Pretty(), s.Conn().RemoteMultiaddr())
 
 	r := pbio.NewDelimitedReader(s, maxMessageSize)
 	w := pbio.NewDelimitedWriter(s)
 
-	var hello pb.Hello
-	if err := r.ReadMsg(&hello); err != nil {
-		fmt.Printf("error reading hello message: %s\n", err)
-		return
-	}
+	var remoteUser *types.UserInfo
+	var err error
 
-	userInfo, err := types.UserInfoFromPB(hello.User)
-	if err != nil {
-		fmt.Printf("error decoding remote user info: %s\n", err)
-		return
-	}
-	p.dispatcher.PeerJoined(userInfo)
-	remotePeer := userInfo.PeerID
+	// inbound conns say hello first
+	if inbound {
+		_, remoteUser, err = p.readHello(r)
+		if err != nil {
+			fmt.Printf("error reading hello msg: %s\n", err)
+			return
+		}
 
-	// say hi back
-	hello.User, err = p.localUser.ToPB()
-	if err != nil {
-		fmt.Printf("error encoding local user info: %s\n", err)
-		return
-	}
+		if err = p.sayHello(w); err != nil {
+			fmt.Printf("error saying hello: %s\n", err)
+		}
+	} else {
+		if err := p.sayHello(w); err != nil {
+			fmt.Printf("error saying hello: %s\n", err)
+		}
 
-	if err = w.WriteMsg(&hello); err != nil {
-		fmt.Printf("error saying hello: %s\n", err)
-		return
+		_, remoteUser, err = p.readHello(r)
+		if err != nil {
+			fmt.Printf("error reading hello msg: %s\n", err)
+			return
+		}
 	}
 
 	// kickoff read loop in background
 	go p.readFromStream(r)
 
 	// get a new channel to receive outgoing messages on
-	pubCh := p.addFanoutListener(remotePeer)
+	pubCh := p.addFanoutListener(remoteUser.PeerID)
 
 	// push any outgoing messages to the stream
 	for msg := range pubCh {
-		fmt.Printf("writing outgoing message to stream: %v\n", msg)
+		//fmt.Printf("writing outgoing message to stream: %v\n", msg)
 		if err := w.WriteMsg(msg); err != nil {
 			fmt.Printf("error publishing message: %s\n", err)
 		}
 	}
 }
 
-func (p *PartyLinePeer) readFromStream(r pbio.Reader) {
+func (p *PartyLinePeer) readHello(r pbio.Reader) (*pb.Hello, *types.UserInfo, error) {
+	var hello pb.Hello
+	if err := r.ReadMsg(&hello); err != nil {
+		fmt.Printf("error reading hello message: %s\n", err)
+		return nil, nil, err
+	}
+
+	userInfo, err := types.UserInfoFromPB(hello.User)
+	if err != nil {
+		fmt.Printf("error converting from pb: %s\n", err)
+		return nil, nil, err
+	}
+	p.dispatcher.PeerJoined(userInfo)
+
+	return &hello, userInfo, nil
+}
+
+func (p *PartyLinePeer) sayHello(w pbio.Writer) error {
+	user, err := p.localUser.ToPB()
+	if err != nil {
+		fmt.Printf("error encoding local user info: %s\n", err)
+		return err
+	}
+	hello := &pb.Hello{User: user}
+	return w.WriteMsg(hello)
+}
+
+func (p *PartyLinePeer) readFromStream(r pbio.ReadCloser) {
 	for {
-		var genericMsg proto.Message
-		err := r.ReadMsg(genericMsg)
+		var msg pb.Message
+		err := r.ReadMsg(&msg)
 		if err != nil {
-			fmt.Printf("error reading protobuf from stream: %s", err)
-			continue
+			fmt.Printf("error reading protobuf from stream: %s\n", err)
+			fmt.Printf("closing stream due to error\n")
+			r.Close()
+			return
 		}
 
-		switch msg := genericMsg.(type) {
-		case *pb.Message:
-			fmt.Printf("received message from stream %v\n", msg)
-			p.incomingMsgCh <- msg
-		default:
-			fmt.Printf("received message of unknown type %T\n", msg)
-		}
+		fmt.Printf("received message from %s (%s)\n", msg.Author.Nickname, msg.Author.PeerId)
+		p.incomingMsgCh <- &msg
 	}
 }
 
@@ -254,16 +284,20 @@ func (p *PartyLinePeer) fanoutLoop() {
 			continue
 		}
 
-		//p.fanoutLk.Lock()
+		p.inlineAttachmentContent(pbMsg)
+
+		p.fanoutLk.Lock()
 		for _, ch := range p.fanout {
 			ch <- pbMsg
 		}
-		//p.fanoutLk.Unlock()
+		p.fanoutLk.Unlock()
 	}
 }
 
 func (p *PartyLinePeer) incomingMsgLoop() {
 	for pbMsg := range p.incomingMsgCh {
+		fmt.Printf("received message from incoming channel %v\n", pbMsg)
+
 		msg, err := types.MessageFromPB(pbMsg)
 		if err != nil {
 			fmt.Printf("error converting message from pb: %s\n", err)
@@ -276,10 +310,13 @@ func (p *PartyLinePeer) incomingMsgLoop() {
 				if err != nil {
 					fmt.Printf("error unpacking audio recording: %s\n", err)
 				} else {
+					fmt.Printf("adding audio recording from message to store\n")
 					p.audioStore.AddRecording(rec)
 				}
 			}
 		}
+
+		p.dispatcher.ReceiveMessage(*msg)
 	}
 }
 
