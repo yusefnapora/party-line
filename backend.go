@@ -27,7 +27,13 @@ type PartyLineApp struct {
 	dispatcher *api.Dispatcher
 }
 
-func NewApp(uiPort int, userNick string) (*PartyLineApp, error) {
+type PartyLineAppConfig struct {
+	UIPort          int
+	UserNick        string
+	BlockLocalDials bool
+}
+
+func NewApp(cfg PartyLineAppConfig) (*PartyLineApp, error) {
 	audioStore, err := audio.NewStore()
 	if err != nil {
 		return nil, err
@@ -40,18 +46,18 @@ func NewApp(uiPort int, userNick string) (*PartyLineApp, error) {
 
 	publishCh := make(chan types.Message, 1024)
 	dispatcher := api.NewDispatcher(publishCh)
-	peer, err := p2p.NewPeer(dispatcher, publishCh, audioStore, userNick)
+	peer, err := p2p.NewPeer(dispatcher, publishCh, audioStore, cfg.UserNick, cfg.BlockLocalDials)
 	if err != nil {
 		return nil, err
 	}
 
 	localUser := types.UserInfo{
 		PeerID:   peer.PeerID().Pretty(),
-		Nickname: userNick,
+		Nickname: cfg.UserNick,
 	}
 
 	a := &PartyLineApp{
-		UIServerPort:  uiPort,
+		UIServerPort:  cfg.UIPort,
 		localUser:     localUser,
 		audioRecorder: recorder,
 		audioStore:    audioStore,
@@ -117,6 +123,12 @@ func (a *PartyLineApp) startUIServer() {
 		},
 		RawHeaders: []string{
 			`<script src="https://kit.fontawesome.com/718ec8aa25.js" crossorigin="anonymous"></script>`,
+			`<script>
+    			window.jdenticon_config = {replaceMode: "observe"};
+			</script>
+			<script src="https://cdn.jsdelivr.net/npm/jdenticon@3.1.0/dist/jdenticon.min.js"
+				integrity="sha384-VngWWnG9GS4jDgsGEUNaoRQtfBGiIKZTiXwm9KpgAeaRn6Y/1tAFiyXqSzqC8Ga/" crossorigin="anonymous">
+			</script>`,
 		},
 	})
 

@@ -20,6 +20,7 @@ type RootView struct {
 	evtCh        <-chan types.Event
 	evtCancelSub func()
 
+	peerListView    *PeerListView
 	messageListView *MessageListView
 
 	me types.UserInfo
@@ -27,10 +28,11 @@ type RootView struct {
 
 func Root(apiClient *client.Client, me types.UserInfo) *RootView {
 	v := &RootView{
-		apiClient:       apiClient,
-		me:              me,
+		apiClient: apiClient,
+		me:        me,
 	}
 	v.messageListView = MessageList(me.PeerID, nil, v.handleAttachmentClick)
+	v.peerListView = PeerList([]types.UserInfo{me})
 	return v
 }
 
@@ -80,7 +82,14 @@ func (v *RootView) handleRemoteEvent(evt types.Event) {
 		v.addMessage(msg)
 
 	case types.EvtUserJoined:
-		// TODO
+		app.Log("user joined event")
+		m := evt.Payload.(map[string]interface{})
+		info, err := userInfoFromMap(m["User"].(map[string]interface{}))
+		if err != nil {
+			app.Log("unmarshal error: %s", err)
+			return
+		}
+		v.userJoined(info)
 	}
 }
 
@@ -107,11 +116,25 @@ func msgFromMap(m map[string]interface{}) (*types.Message, error) {
 	return &msg, nil
 }
 
+func userInfoFromMap(m map[string]interface{}) (*types.UserInfo, error) {
+	bytes, err := json.Marshal(m)
+	if err != nil {
+		return nil, err
+	}
+	var msg types.UserInfo
+	if err = json.Unmarshal(bytes, &msg); err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
+func (v *RootView) userJoined(info *types.UserInfo) {
+	app.Log("got user joined event: %v", info)
+	v.peerListView.AddUser(*info)
+}
+
 func (v *RootView) addMessage(msg *types.Message) {
 	v.messageListView.AddMessage(msg)
-
-	// update UI
-	//v.Update()
 }
 
 func (v *RootView) sendMessage(msg *types.Message) error {
@@ -136,17 +159,22 @@ func (v *RootView) Render() app.UI {
 		btnClass = "state-recording"
 	}
 
-	return app.Div().Body(
+	return app.Div().Class("root-view").Body(
 
-		v.messageListView,
+		app.Div().Class("message-view-container").Body(
 
-		app.Div().Body(
-			MessageInput(v.textMessageEntered),
-			app.Button().
-				Class("recording-button").
-				Class(btnClass).
-				OnClick(v.onClick).
-				Body(Icon("fas fa-microphone").Color("white"))),
+			v.messageListView,
+
+			app.Div().Body(
+				MessageInput(v.textMessageEntered),
+				app.Button().
+					Class("recording-button").
+					Class(btnClass).
+					OnClick(v.onClick).
+					Body(Icon("fas fa-microphone").Color("white"))),
+		),
+
+		v.peerListView,
 	)
 }
 

@@ -69,6 +69,8 @@ func (v *MessageView) Render() app.UI {
 		Class("message-bubble").
 		Class(msgTypeClass).
 		Body(
+			UserAvatar(v.msg.Author, 32),
+
 			app.Span().Body(
 				app.Text(v.msg.Author.Nickname),
 			).Class("author-name"),

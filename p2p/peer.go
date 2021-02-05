@@ -5,14 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p-core/connmgr"
+	"github.com/libp2p/go-libp2p-core/control"
 	"github.com/libp2p/go-libp2p-core/event"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p/p2p/host/routed"
 	"github.com/libp2p/go-tcp-transport"
 	ma "github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/yusefnapora/party-line/api"
 	"github.com/yusefnapora/party-line/audio"
 	pb "github.com/yusefnapora/party-line/p2p/pb"
@@ -27,8 +31,9 @@ const protocolID = "/hacks/party-line"
 const maxMessageSize = 1 << 20
 
 type PartyLinePeer struct {
-	localUser  types.UserInfo
 	host       host.Host
+
+	localUser  types.UserInfo
 	dispatcher *api.Dispatcher
 	audioStore *audio.Store
 
@@ -41,7 +46,7 @@ type PartyLinePeer struct {
 	fanout map[string] chan *pb.Message
 }
 
-func NewPeer(dispatcher *api.Dispatcher, publishCh <-chan types.Message, audioStore *audio.Store, userNick string) (*PartyLinePeer, error) {
+func NewPeer(dispatcher *api.Dispatcher, publishCh <-chan types.Message, audioStore *audio.Store, userNick string, blockLAN bool) (*PartyLinePeer, error) {
 	relayId, err := peer.Decode("Qma71QQyJN7Sw7gz1cgJ4C66ubHmvKqBasSegKRugM5qo6")
 	if err != nil {
 		return nil, err
@@ -56,15 +61,21 @@ func NewPeer(dispatcher *api.Dispatcher, publishCh <-chan types.Message, audioSt
 	fmt.Printf("setting up libp2p host...\n")
 
 	ctx := context.Background()
-	h, err := libp2p.New(ctx, libp2p.ForceReachabilityPrivate(), libp2p.EnableAutoRelay(),
+	opts := []libp2p.Option{
+		libp2p.ForceReachabilityPrivate(), libp2p.EnableAutoRelay(),
 		libp2p.StaticRelays(relayInfo), libp2p.EnableHolePunching(),
 		libp2p.Transport(tcp.NewTCPTransport),
 		//libp2p.Transport(quic.NewTransport),
 		libp2p.ListenAddrs(ma.StringCast("/ip4/0.0.0.0/tcp/0"), ma.StringCast("/ip4/0.0.0.0/udp/0/quic")),
-	)
+	}
+
+	if blockLAN {
+		opts = append(opts, libp2p.ConnectionGater(&gater{}))
+	}
+
+	h, err := libp2p.New(ctx, opts...)
 
 	peer := &PartyLinePeer{
-		host:       h,
 		publishCh:  publishCh,
 		dispatcher: dispatcher,
 		audioStore: audioStore,
@@ -93,6 +104,8 @@ func NewPeer(dispatcher *api.Dispatcher, publishCh <-chan types.Message, audioSt
 		panic(err)
 	}
 	d.Bootstrap(ctx)
+
+	peer.host = routedhost.Wrap(h, d)
 
 	// wait till we have a relay addrs
 LOOP:
@@ -341,4 +354,33 @@ func (p *PartyLinePeer) inlineAttachmentContent(msg *pb.Message) {
 		}
 		a.Content = bytes
 	}
+}
+
+
+var _ connmgr.ConnectionGater = (*gater)(nil)
+type gater struct {
+}
+
+func (g gater) InterceptPeerDial(p peer.ID) (allow bool) {
+	return true
+}
+
+func (g gater) InterceptAddrDial(id peer.ID, a ma.Multiaddr) (allow bool) {
+	if manet.IsIPLoopback(a) || manet.IsPrivateAddr(a) {
+		//fmt.Printf("blocking dial to local addr %s for peer %s\n", a, id.Pretty())
+		return false
+	}
+	return true
+}
+
+func (g gater) InterceptAccept(multiaddrs network.ConnMultiaddrs) (allow bool) {
+	return true
+}
+
+func (g gater) InterceptSecured(direction network.Direction, id peer.ID, multiaddrs network.ConnMultiaddrs) (allow bool) {
+	return true
+}
+
+func (g gater) InterceptUpgraded(conn network.Conn) (allow bool, reason control.DisconnectReason) {
+	return true, 0
 }

@@ -160,6 +160,10 @@ type UserJoinedEvent struct {
 	User UserInfo
 }
 
+type UserLeftEvent struct {
+	User UserInfo
+}
+
 // MessageReceivedEvent is pushed to the frontend via websockets when we get a message from a peer.
 type MessageReceivedEvent struct {
 	Message Message
