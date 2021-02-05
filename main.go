@@ -40,7 +40,7 @@ func main() {
 		defer w.Destroy()
 		w.SetTitle("NAT Party")
 		w.SetSize(1200, 800, webview.HintNone)
-		w.Navigate(fmt.Sprintf("http://localhost:%d", port))
+		w.Navigate(fmt.Sprintf("http://localhost:%d", *port))
 		w.Run()
 	} else {
 		// block forever, since the server is running in a background routine & we don't want to quit yet
