@@ -9,7 +9,7 @@ import (
 )
 
 type Recording struct {
-	ID string
+	ID     string
 	Frames [][]byte
 }
 
@@ -28,7 +28,7 @@ func RecordingFromJSON(b []byte) (*Recording, error) {
 
 type Recorder struct {
 	recording abool.AtomicBool
-	stopCh chan struct{}
+	stopCh    chan struct{}
 
 	inputDevice *InputDevice
 
@@ -37,7 +37,7 @@ type Recorder struct {
 
 const sampleRate = 48000
 
-func NewRecorder(store *Store) (*Recorder, error){
+func NewRecorder(store *Store) (*Recorder, error) {
 	inputDevice, err := OpenInputDevice(sampleRate)
 	if err != nil {
 		panic(err)
@@ -45,10 +45,9 @@ func NewRecorder(store *Store) (*Recorder, error){
 
 	return &Recorder{
 		inputDevice: inputDevice,
-		store: store,
+		store:       store,
 	}, nil
 }
-
 
 func (r *Recorder) BeginRecording(maxDuration time.Duration) (string, error) {
 	if r.recording.IsSet() {

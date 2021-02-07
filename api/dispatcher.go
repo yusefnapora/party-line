@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-
 type Dispatcher struct {
 	incoming chan *types.Message
 	outgoing chan *types.Message
@@ -20,11 +19,11 @@ type Dispatcher struct {
 
 func NewDispatcher(publishCh chan<- *types.Message) *Dispatcher {
 	d := &Dispatcher{
-		incoming: make(chan *types.Message, 1024),
-		outgoing: make(chan *types.Message, 1024),
+		incoming:  make(chan *types.Message, 1024),
+		outgoing:  make(chan *types.Message, 1024),
 		publishCh: publishCh,
-		stop:     make(chan struct{}),
-		listeners: make(map[string] chan *types.Event),
+		stop:      make(chan struct{}),
+		listeners: make(map[string]chan *types.Event),
 	}
 
 	go d.loop()
@@ -35,7 +34,7 @@ func NewDispatcher(publishCh chan<- *types.Message) *Dispatcher {
 func (d *Dispatcher) PeerJoined(user *types.UserInfo) {
 	evt := &types.Event{
 		TimestampUnix: time.Now().Unix(),
-		Evt: &types.Event_UserJoined{UserJoined: &types.UserJoinedEvent{User: user}},
+		Evt:           &types.Event_UserJoined{UserJoined: &types.UserJoinedEvent{User: user}},
 	}
 	d.pushToListeners(evt)
 }
@@ -85,7 +84,7 @@ func (d *Dispatcher) loop() {
 func (d *Dispatcher) handleIncoming(msg *types.Message) {
 	evt := &types.Event{
 		TimestampUnix: time.Now().Unix(),
-		Evt: &types.Event_MessageReceived{MessageReceived: &types.MessageReceivedEvent{Message: msg}},
+		Evt:           &types.Event_MessageReceived{MessageReceived: &types.MessageReceivedEvent{Message: msg}},
 	}
 	d.pushToListeners(evt)
 }
@@ -98,7 +97,7 @@ func (d *Dispatcher) handleOutgoing(msg *types.Message) {
 	// so we can display our own messages
 	evt := &types.Event{
 		TimestampUnix: time.Now().Unix(),
-		Evt: &types.Event_MessageSent{MessageSent: &types.MessageSentEvent{Message: msg}},
+		Evt:           &types.Event_MessageSent{MessageSent: &types.MessageSentEvent{Message: msg}},
 	}
 	d.pushToListeners(evt)
 }

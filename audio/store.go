@@ -22,7 +22,7 @@ func NewStore() (*Store, error) {
 	}
 
 	return &Store{
-		recordings: make(map[string]*Recording),
+		recordings:   make(map[string]*Recording),
 		outputDevice: outputDevice,
 	}, nil
 }

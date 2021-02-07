@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/maxence-charriere/go-app/v7/pkg/app"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/yusefnapora/party-line/api"
 	"github.com/yusefnapora/party-line/audio"
 	"github.com/yusefnapora/party-line/p2p"
 	"github.com/yusefnapora/party-line/types"
-	ma "github.com/multiformats/go-multiaddr"
 
 	"log"
 	"net/http"

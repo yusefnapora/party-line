@@ -78,7 +78,7 @@ func UserCard(user *types.UserInfo) *UserCardView {
 
 func (v *UserCardView) Render() app.UI {
 	idlen := len(v.user.PeerId)
-	shortID := v.user.PeerId[idlen-8:idlen]
+	shortID := v.user.PeerId[idlen-8 : idlen]
 
 	const aviSize = 64
 

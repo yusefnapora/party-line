@@ -30,7 +30,7 @@ const protocolID = "/hacks/party-line"
 const maxMessageSize = 1 << 20
 
 type PartyLinePeer struct {
-	host       host.Host
+	host host.Host
 
 	localUser  *pb.UserInfo
 	dispatcher *api.Dispatcher
@@ -42,7 +42,7 @@ type PartyLinePeer struct {
 	incomingMsgCh chan *pb.Message
 
 	fanoutLk sync.Mutex
-	fanout map[string] chan *pb.Message
+	fanout   map[string]chan *pb.Message
 }
 
 func NewPeer(dispatcher *api.Dispatcher, publishCh <-chan *pb.Message, audioStore *audio.Store, userNick string, blockLAN bool) (*PartyLinePeer, error) {
@@ -75,10 +75,10 @@ func NewPeer(dispatcher *api.Dispatcher, publishCh <-chan *pb.Message, audioStor
 	h, err := libp2p.New(ctx, opts...)
 
 	peer := &PartyLinePeer{
-		publishCh:  publishCh,
-		dispatcher: dispatcher,
-		audioStore: audioStore,
-		fanout: make(map[string] chan *pb.Message),
+		publishCh:     publishCh,
+		dispatcher:    dispatcher,
+		audioStore:    audioStore,
+		fanout:        make(map[string]chan *pb.Message),
 		incomingMsgCh: make(chan *pb.Message, 1024),
 	}
 
@@ -155,7 +155,7 @@ func (p *PartyLinePeer) PeerID() peer.ID {
 }
 
 func (p *PartyLinePeer) ConnectToPeer(pid peer.ID) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second * 20)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
 	defer cancel()
 	s, err := p.host.NewStream(ctx, pid, protocolID)
 	if err != nil {
@@ -177,7 +177,6 @@ func (p *PartyLinePeer) AddPeerAddr(addr ma.Multiaddr) (*peer.ID, error) {
 	}
 	return &ai.ID, nil
 }
-
 
 func (p *PartyLinePeer) handleIncomingStream(s network.Stream) {
 	p.handleStream(s, true)
@@ -263,7 +262,6 @@ func (p *PartyLinePeer) readFromStream(r pbio.ReadCloser) {
 	}
 }
 
-
 func (p *PartyLinePeer) addFanoutListener(pidStr string) <-chan *pb.Message {
 	p.fanoutLk.Lock()
 	defer p.fanoutLk.Unlock()
@@ -296,7 +294,7 @@ func (p *PartyLinePeer) incomingMsgLoop() {
 		//fmt.Printf("received message from incoming channel %v\n", pbMsg)
 
 		for _, a := range msg.Attachments {
-			if a.Type == pb.AttachmentTypeAudioOpus && len(a.Content) > 0{
+			if a.Type == pb.AttachmentTypeAudioOpus && len(a.Content) > 0 {
 				rec, err := audio.RecordingFromJSON(a.Content)
 				if err != nil {
 					fmt.Printf("error unpacking audio recording: %s\n", err)
@@ -332,8 +330,8 @@ func (p *PartyLinePeer) inlineAttachmentContent(msg *pb.Message) {
 	}
 }
 
-
 var _ connmgr.ConnectionGater = (*gater)(nil)
+
 type gater struct {
 }
 

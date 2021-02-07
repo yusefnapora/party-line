@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-type attachmentClickHandler func (attachment *types.Attachment)
+type attachmentClickHandler func(attachment *types.Attachment)
 
 type MessageListView struct {
 	app.Compo
@@ -28,8 +28,8 @@ func (v *MessageListView) Render() app.UI {
 		app.Range(v.messages).Slice(func(i int) app.UI {
 			msg := v.messages[i]
 			return &MessageView{
-				msg:      msg,
-				fromSelf: msg.Author.PeerId == v.localPeerID,
+				msg:               msg,
+				fromSelf:          msg.Author.PeerId == v.localPeerID,
 				onAttachmentClick: v.onAttachmentClick,
 			}
 		}))
@@ -37,8 +37,8 @@ func (v *MessageListView) Render() app.UI {
 
 func MessageList(localPeer string, messages []*types.Message, onAttachmentClick attachmentClickHandler) *MessageListView {
 	return &MessageListView{
-		localPeerID: localPeer,
-		messages:    messages,
+		localPeerID:       localPeer,
+		messages:          messages,
 		onAttachmentClick: onAttachmentClick,
 	}
 }
@@ -77,16 +77,15 @@ func (v *MessageView) Render() app.UI {
 
 			app.Text(v.msg.TextContent),
 
-			app.If(len(v.msg.Attachments) > 0, app.Range(v.msg.Attachments).Slice(func (i int) app.UI {
+			app.If(len(v.msg.Attachments) > 0, app.Range(v.msg.Attachments).Slice(func(i int) app.UI {
 				a := v.msg.Attachments[i]
 				return &MessageAttachmentView{attachment: a, clickHandler: v.onAttachmentClick}
 			})))
 }
 
-
 type MessageAttachmentView struct {
 	app.Compo
-	attachment *types.Attachment
+	attachment   *types.Attachment
 	clickHandler attachmentClickHandler
 }
 

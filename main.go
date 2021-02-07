@@ -26,7 +26,6 @@ func main() {
 	// TODO: add "connect to peer id" box to UI. for now, we just pass pids on the command line
 	remotePeers := flag.Args()
 
-
 	a, err := NewApp(PartyLineAppConfig{
 		UIPort:          *port,
 		UserNick:        *nick,

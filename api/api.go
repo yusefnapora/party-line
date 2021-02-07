@@ -116,7 +116,8 @@ func (h *Handler) ListAudioInputs(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err = w.Write(buf); err != nil {
 		fmt.Printf("io error: %s\n", err)
-	}}
+	}
+}
 
 func (h *Handler) ListPeers(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "coming soon", 501)
@@ -205,7 +206,6 @@ func (h *Handler) StartRecording(w http.ResponseWriter, r *http.Request) {
 	resp := &types.ApiResponse{Resp: &types.ApiResponse_BeginAudioRecording{BeginAudioRecording: &types.BeginAudioRecordingResponse{
 		RecordingId: recordingId,
 	}}}
-
 
 	fmt.Printf("response: %v\n", resp)
 

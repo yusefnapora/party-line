@@ -45,7 +45,7 @@ func (output *OutputDevice) Close() error {
 }
 
 func (output *OutputDevice) PlayOpus(data []byte) error {
-	var frameSizeMs float32 = 20 
+	var frameSizeMs float32 = 20
 	frameSize := frameSizeMs * float32(output.sampleRate) / 1000
 	pcm := make([]int16, int(frameSize))
 	n, err := output.opusDec.Decode(data, pcm)
