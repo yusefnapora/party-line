@@ -36,7 +36,7 @@ func main() {
 		panic(err)
 	}
 
-	root := components.Root(apiClient, *user)
+	root := components.Root(apiClient, user)
 
 	app.Route("/", root) // rootComponent component is associated with URL path "/".
 	app.Run()                // Launches the PWA.

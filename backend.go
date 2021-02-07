@@ -18,7 +18,7 @@ import (
 type PartyLineApp struct {
 	UIServerPort int
 
-	localUser     types.UserInfo
+	localUser     *types.UserInfo
 	audioRecorder *audio.Recorder
 	audioStore    *audio.Store
 
@@ -44,15 +44,15 @@ func NewApp(cfg PartyLineAppConfig) (*PartyLineApp, error) {
 		return nil, err
 	}
 
-	publishCh := make(chan types.Message, 1024)
+	publishCh := make(chan *types.Message, 1024)
 	dispatcher := api.NewDispatcher(publishCh)
 	peer, err := p2p.NewPeer(dispatcher, publishCh, audioStore, cfg.UserNick, cfg.BlockLocalDials)
 	if err != nil {
 		return nil, err
 	}
 
-	localUser := types.UserInfo{
-		PeerID:   peer.PeerID().Pretty(),
+	localUser := &types.UserInfo{
+		PeerId:   peer.PeerID().Pretty(),
 		Nickname: cfg.UserNick,
 	}
 

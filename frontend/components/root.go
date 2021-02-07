@@ -17,22 +17,22 @@ type RootView struct {
 	isRecording        bool
 	currentRecordingID string
 
-	evtCh        <-chan types.Event
+	evtCh        <-chan *types.Event
 	evtCancelSub func()
 
 	peerListView    *PeerListView
 	messageListView *MessageListView
 
-	me types.UserInfo
+	me *types.UserInfo
 }
 
-func Root(apiClient *client.Client, me types.UserInfo) *RootView {
+func Root(apiClient *client.Client, me *types.UserInfo) *RootView {
 	v := &RootView{
 		apiClient: apiClient,
 		me:        me,
 	}
-	v.messageListView = MessageList(me.PeerID, nil, v.handleAttachmentClick)
-	v.peerListView = PeerList([]types.UserInfo{me})
+	v.messageListView = MessageList(me.PeerId, nil, v.handleAttachmentClick)
+	v.peerListView = PeerList([]*types.UserInfo{me})
 	return v
 }
 
@@ -66,40 +66,26 @@ func (v *RootView) readEvents(ctx app.Context) {
 	}
 }
 
-func (v *RootView) handleRemoteEvent(evt types.Event) {
+func (v *RootView) handleRemoteEvent(evt *types.Event) {
 	app.Log("remote event: %v", evt)
 
-	switch evt.EventType {
-	case types.EvtMsgReceived:
-		fallthrough
-	case types.EvtMsgSent:
-		m := evt.Payload.(map[string]interface{})
-		msg, err := msgFromMap(m)
-		if err != nil {
-			app.Log("unmarshal error: %s", err)
-			return
-		}
-		v.addMessage(msg)
-
-	case types.EvtUserJoined:
-		app.Log("user joined event")
-		m := evt.Payload.(map[string]interface{})
-		info, err := userInfoFromMap(m["User"].(map[string]interface{}))
-		if err != nil {
-			app.Log("unmarshal error: %s", err)
-			return
-		}
-		v.userJoined(info)
+	switch e := evt.Evt.(type) {
+	case *types.Event_MessageReceived:
+		v.addMessage(e.MessageReceived.Message)
+	case *types.Event_MessageSent:
+		v.addMessage(e.MessageSent.Message)
+	case *types.Event_UserJoined:
+		v.userJoined(e.UserJoined.User)
 	}
 }
 
-func (v *RootView) handleAttachmentClick(a *types.MessageAttachment) {
+func (v *RootView) handleAttachmentClick(a *types.Attachment) {
 	app.Log("attachment clicked %v", a)
 	if a.Type != types.AttachmentTypeAudioOpus {
 		return
 	}
 
-	if err := v.apiClient.PlayAudioRecording(a.ID); err != nil {
+	if err := v.apiClient.PlayAudioRecording(a.Id); err != nil {
 		app.Log("error playing attachment: %s", err)
 	}
 }
@@ -130,7 +116,7 @@ func userInfoFromMap(m map[string]interface{}) (*types.UserInfo, error) {
 
 func (v *RootView) userJoined(info *types.UserInfo) {
 	app.Log("got user joined event: %v", info)
-	v.peerListView.AddUser(*info)
+	v.peerListView.AddUser(info)
 }
 
 func (v *RootView) addMessage(msg *types.Message) {
@@ -143,9 +129,9 @@ func (v *RootView) sendMessage(msg *types.Message) error {
 
 func (v *RootView) textMessageEntered(content string) {
 	msg := types.Message{
-		Author:      v.me,
-		SentAtTime:  time.Now(),
-		TextContent: content,
+		Author:         v.me,
+		SentAtTimeUnix: time.Now().Unix(),
+		TextContent:    content,
 	}
 	if err := v.sendMessage(&msg); err != nil {
 		fmt.Printf("send error: %s\n", err)
@@ -191,7 +177,7 @@ func (v *RootView) onClick(ctx app.Context, e app.Event) {
 		}
 
 		v.isRecording = true
-		v.currentRecordingID = resp.RecordingID
+		v.currentRecordingID = resp.RecordingId
 	} else {
 		recID = v.currentRecordingID
 		err := v.apiClient.EndAudioRecording(v.currentRecordingID)
@@ -217,16 +203,16 @@ func (v *RootView) onClick(ctx app.Context, e app.Event) {
 }
 
 func (v *RootView) sendAudioMessage(recordingID string) error {
-	a := types.MessageAttachment{
-		ID:      recordingID,
+	a := &types.Attachment{
+		Id:      recordingID,
 		Type:    types.AttachmentTypeAudioOpus,
 		Content: nil, // will be filled in on the server by matching the Recording ID
 	}
 
 	msg := types.Message{
-		Author:      v.me,
-		SentAtTime:  time.Now(),
-		Attachments: []types.MessageAttachment{a},
+		Author:         v.me,
+		SentAtTimeUnix: time.Now().Unix(),
+		Attachments:    []*types.Attachment{a},
 	}
 
 	return v.sendMessage(&msg)

@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package types;
+
+// UserInfo describes a user.
+message UserInfo {
+  string peer_id = 1;
+  string nickname = 2;
+}
+
+// Hello messages are exchanged when peers first connect.
+message Hello {
+  UserInfo user = 1;
+}
+
+// Goodbye is sent when explicitly ending a chat (vs unplanned disconnect).
+message Goodbye {
+  UserInfo user = 1;
+}
+
+// Attachment contains a byte string payload of a given type.
+message Attachment {
+  string type = 1;
+  string id = 2;
+  bytes content = 3;
+}
+
+// Message can have text and zero or more attachments.
+message Message {
+  UserInfo author = 1;
+  int64 sent_at_time_unix = 2;
+  string text_content = 3;
+  repeated Attachment attachments = 4;
+}
+
+
+// InputDeviceInfo describes an audio capture device.
+message InputDeviceInfo {
+  string device_id = 1;
+  string name = 2;
+  bool is_default = 3;
+}
+
+message InputDeviceList {
+  repeated InputDeviceInfo devices = 1;
+}
+
+message BeginAudioRecordingRequest {
+  string max_duration = 1;
+}
+
+message StopAudioRecordingRequest {
+  string recording_id = 1;
+}
+
+message PlayAudioRecordingRequest {
+  string recording_id = 1;
+}
+
+
+message ApiResponse {
+  oneof resp {
+    OkResponse ok = 1;
+    ErrorResponse error = 2;
+    BeginAudioRecordingResponse begin_audio_recording = 3;
+  }
+}
+
+message ErrorResponse {
+  string details = 1;
+}
+
+message OkResponse {
+}
+
+message BeginAudioRecordingResponse {
+  string recording_id = 1;
+}
+
+
+message Event {
+  int64 timestamp_unix = 1;
+
+  oneof evt {
+    UserJoinedEvent user_joined = 101;
+    UserLeftEvent user_left = 102;
+    MessageReceivedEvent message_received = 103;
+    MessageSentEvent message_sent = 104;
+  }
+}
+
+message UserJoinedEvent {
+  UserInfo user = 1;
+}
+
+message UserLeftEvent {
+  UserInfo user = 1;
+}
+
+message MessageReceivedEvent {
+  Message message = 1;
+}
+
+message MessageSentEvent {
+  Message message = 1;
+}

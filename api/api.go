@@ -2,14 +2,15 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"github.com/gogo/protobuf/proto"
 	"github.com/google/uuid"
 	"github.com/yusefnapora/party-line/audio"
 	"github.com/yusefnapora/party-line/types"
+	"io"
 	"net/http"
 	"nhooyr.io/websocket"
-	"nhooyr.io/websocket/wsjson"
+	"nhooyr.io/websocket/wspb"
 	"strings"
 	"sync"
 	"time"
@@ -17,19 +18,19 @@ import (
 
 type Handler struct {
 	pathPrefix string
-	localUser  types.UserInfo
+	localUser  *types.UserInfo
 
 	audioRecorder *audio.Recorder
 	audioStore    *audio.Store
 
-	eventCh      <-chan types.Event
-	evtListeners map[string]chan types.Event
+	eventCh      <-chan *types.Event
+	evtListeners map[string]chan *types.Event
 	listenerLk   sync.Mutex
 
 	dispatcher *Dispatcher
 }
 
-func NewHandler(pathPrefix string, localUser types.UserInfo, recorder *audio.Recorder, store *audio.Store, dispatcher *Dispatcher) (*Handler, error) {
+func NewHandler(pathPrefix string, localUser *types.UserInfo, recorder *audio.Recorder, store *audio.Store, dispatcher *Dispatcher) (*Handler, error) {
 
 	h := &Handler{
 		pathPrefix:    pathPrefix,
@@ -37,7 +38,7 @@ func NewHandler(pathPrefix string, localUser types.UserInfo, recorder *audio.Rec
 		audioRecorder: recorder,
 		audioStore:    store,
 		dispatcher:    dispatcher,
-		evtListeners:  make(map[string]chan types.Event),
+		evtListeners:  make(map[string]chan *types.Event),
 	}
 
 	h.eventCh = h.dispatcher.AddListener("api-handler")
@@ -46,7 +47,7 @@ func NewHandler(pathPrefix string, localUser types.UserInfo, recorder *audio.Rec
 	return h, nil
 }
 
-func (h *Handler) addEventListener(id string, ch chan types.Event) {
+func (h *Handler) addEventListener(id string, ch chan *types.Event) {
 	h.listenerLk.Lock()
 	defer h.listenerLk.Unlock()
 
@@ -76,6 +77,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("serving request for %s\n", path)
 
+	w.Header().Set("Content-Type", "application/protobuf")
+
 	switch path {
 	case "/audio-inputs":
 		h.ListAudioInputs(w, r)
@@ -104,16 +107,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListAudioInputs(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	devices := audio.ListInputDevices()
-
-	enc := json.NewEncoder(w)
-	err := enc.Encode(types.InputDeviceList{Devices: devices})
+	resp := &types.InputDeviceList{Devices: devices}
+	buf, err := proto.Marshal(resp)
 	if err != nil {
-		http.Error(w, "Error encoding response", 501)
+		http.Error(w, "Error encoding response", 500)
 		return
 	}
-}
+	if _, err = w.Write(buf); err != nil {
+		fmt.Printf("io error: %s\n", err)
+	}}
 
 func (h *Handler) ListPeers(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "coming soon", 501)
@@ -128,9 +131,13 @@ func (h *Handler) PublishMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dec := json.NewDecoder(r.Body)
-	msg := types.Message{}
-	if err := dec.Decode(&msg); err != nil {
+	buf, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeErrorResponse(w, fmt.Sprintf("unmarshal error: %s", err), 400)
+		return
+	}
+	msg := &types.Message{}
+	if err := proto.Unmarshal(buf, msg); err != nil {
 		writeErrorResponse(w, fmt.Sprintf("error decoding request: %s", err), 400)
 		return
 	}
@@ -149,20 +156,20 @@ func (h *Handler) SubscribeEvents(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("new websocket conn\n")
 
 	listenerID := uuid.New().String()
-	eventCh := make(chan types.Event, 100)
+	eventCh := make(chan *types.Event, 100)
 	h.addEventListener(listenerID, eventCh)
 	fmt.Printf("SubscribeEvents added listener [%s] for websocket updates\n", listenerID)
 
 	go h.websocketPush(c, eventCh)
 }
 
-func (h *Handler) websocketPush(ws *websocket.Conn, eventCh chan types.Event) {
+func (h *Handler) websocketPush(ws *websocket.Conn, eventCh chan *types.Event) {
 	defer ws.Close(websocket.StatusInternalError, "the sky is falling")
 
 	for evt := range eventCh {
 		//fmt.Printf("sending message on websocket: %v\n", evt)
 
-		err := wsjson.Write(context.Background(), ws, evt)
+		err := wspb.Write(context.Background(), ws, evt)
 		if err != nil {
 			fmt.Printf("send error: %s", err)
 		}
@@ -177,9 +184,12 @@ func (h *Handler) StartRecording(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Printf("StartRecording\n")
-	dec := json.NewDecoder(r.Body)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeErrorResponse(w, fmt.Sprintf("io error: %s", err), 400)
+	}
 	req := types.BeginAudioRecordingRequest{}
-	if err := dec.Decode(&req); err != nil {
+	if err := proto.Unmarshal(body, &req); err != nil {
 		writeErrorResponse(w, fmt.Sprintf("error decoding request: %s", err), 400)
 		return
 	}
@@ -187,22 +197,24 @@ func (h *Handler) StartRecording(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("request: %v\n", req)
 
 	recordingId, err := h.audioRecorder.BeginRecording(time.Duration(0))
-	var resp types.BeginAudioRecordingResponse
 	if err != nil {
 		writeErrorResponse(w, err.Error(), 500)
 		return
-	} else {
-		resp = types.BeginAudioRecordingResponse{RecordingID: recordingId}
 	}
+
+	resp := &types.ApiResponse{Resp: &types.ApiResponse_BeginAudioRecording{BeginAudioRecording: &types.BeginAudioRecordingResponse{
+		RecordingId: recordingId,
+	}}}
+
 
 	fmt.Printf("response: %v\n", resp)
 
-	enc := json.NewEncoder(w)
-	err = enc.Encode(resp)
+	buf, err := proto.Marshal(resp)
 	if err != nil {
 		http.Error(w, "Error encoding response", 500)
 		return
 	}
+	w.Write(buf)
 }
 
 func (h *Handler) EndRecording(w http.ResponseWriter, r *http.Request) {
@@ -210,13 +222,16 @@ func (h *Handler) EndRecording(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dec := json.NewDecoder(r.Body)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeErrorResponse(w, fmt.Sprintf("io error: %s", err), 400)
+	}
 	req := types.StopAudioRecordingRequest{}
-	if err := dec.Decode(&req); err != nil {
+	if err := proto.Unmarshal(body, &req); err != nil {
 		http.Error(w, fmt.Sprintf("error decoding request: %s", err), 400)
 	}
 
-	err := h.audioRecorder.StopRecording()
+	err = h.audioRecorder.StopRecording()
 	if err != nil {
 		writeErrorResponse(w, err.Error(), 500)
 		return
@@ -230,37 +245,57 @@ func (h *Handler) PlayRecording(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dec := json.NewDecoder(r.Body)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeErrorResponse(w, fmt.Sprintf("io error: %s", err), 400)
+	}
 	req := types.PlayAudioRecordingRequest{}
-	if err := dec.Decode(&req); err != nil {
+	if err := proto.Unmarshal(body, &req); err != nil {
 		writeErrorResponse(w, fmt.Sprintf("error decoding request: %s", err), 400)
 	}
 
-	err := h.audioStore.PlayRecording(req.RecordingID)
+	err = h.audioStore.PlayRecording(req.RecordingId)
 	if err != nil {
 		writeErrorResponse(w, err.Error(), 500)
 	}
 }
 
 func (h *Handler) ServeUserInfo(w http.ResponseWriter, r *http.Request) {
-	enc := json.NewEncoder(w)
-	if err := enc.Encode(h.localUser); err != nil {
-		fmt.Printf("error sending user info: %d", err)
+	buf, err := proto.Marshal(h.localUser)
+	if err != nil {
+		writeErrorResponse(w, fmt.Sprintf("marshal error: %d", err), 500)
+		return
+	}
+	if _, err = w.Write(buf); err != nil {
+		fmt.Printf("io error: %s\n", err)
 	}
 }
 
 func writeEmptyOk(w http.ResponseWriter) {
-	writeErrorResponse(w, "", 200)
+	w.WriteHeader(200)
+
+	resp := &types.ApiResponse{Resp: &types.ApiResponse_Ok{Ok: &types.OkResponse{}}}
+	buf, err := proto.Marshal(resp)
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error encoding error response object: %s", err.Error()), 500)
+	}
+	if _, err = w.Write(buf); err != nil {
+		fmt.Printf("io error: %s\n", err)
+	}
 }
 
 func writeErrorResponse(w http.ResponseWriter, msg string, statusCode int) {
 	w.WriteHeader(statusCode)
-	resp := types.GenericResponse{Error: msg}
-	enc := json.NewEncoder(w)
-	err := enc.Encode(resp)
+
+	resp := &types.ApiResponse{Resp: &types.ApiResponse_Error{Error: &types.ErrorResponse{Details: msg}}}
+	buf, err := proto.Marshal(resp)
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error encoding error response object: %s", err.Error()), 500)
+	}
+	if _, err = w.Write(buf); err != nil {
+		fmt.Printf("io error: %s\n", err)
 	}
 }
 

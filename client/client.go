@@ -2,12 +2,12 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/go-resty/resty/v2"
+	"github.com/gogo/protobuf/proto"
 	"github.com/yusefnapora/party-line/types"
 	"nhooyr.io/websocket"
-	"nhooyr.io/websocket/wsjson"
+	"nhooyr.io/websocket/wspb"
 	"regexp"
 	"time"
 )
@@ -28,93 +28,128 @@ func NewClient(apiHost string) (*Client, error) {
 	}, nil
 }
 
+func apiError(fmtStr string, args ...interface{}) error {
+	return fmt.Errorf("api error: %s", fmt.Sprintf(fmtStr, args...))
+}
+
 func (c *Client) StartAudioRecording() (*types.BeginAudioRecordingResponse, error) {
 	req := types.BeginAudioRecordingRequest{}
+	body, err := proto.Marshal(&req)
+	if err != nil {
+		return nil, err
+	}
 
 	url := c.apiBaseUrl + "begin-recording"
-	resp, err := c.rest.R().EnableTrace().
-		SetBody(req).
-		Post(url)
+	resp, err := c.rest.R().EnableTrace().SetBody(body).Post(url)
 
 	if err != nil {
 		fmt.Printf("request error: %s\n", err)
 		return nil, err
 	}
 
-	apiResp := &types.BeginAudioRecordingResponse{}
-	err = json.Unmarshal(resp.Body(), apiResp)
+	apiResp := &types.ApiResponse{}
+	err = proto.Unmarshal(resp.Body(), apiResp)
 	if err != nil {
 		fmt.Printf("error decoding api response: %s\n", err)
 		return nil, err
 	}
-	return apiResp, nil
+	switch r := apiResp.Resp.(type) {
+	case *types.ApiResponse_Error:
+		return nil, apiError(r.Error.Details)
+	case *types.ApiResponse_BeginAudioRecording:
+		return r.BeginAudioRecording, nil
+	default:
+		return nil, apiError("unexpected response type %T", r)
+	}
 }
 
 func (c *Client) EndAudioRecording(recordingID string) error {
-	req := types.StopAudioRecordingRequest{RecordingID: recordingID}
+	req := types.StopAudioRecordingRequest{RecordingId: recordingID}
+	body, err := proto.Marshal(&req)
+	if err != nil {
+		return err
+	}
 
 	url := c.apiBaseUrl + "end-recording"
-	resp, err := c.rest.R().EnableTrace().
-		SetBody(req).
-		Post(url)
+	resp, err := c.rest.R().EnableTrace().SetBody(body).Post(url)
 
 	if err != nil {
 		return err
 	}
 
-	apiResp := &types.GenericResponse{}
-	err = json.Unmarshal(resp.Body(), apiResp)
+	apiResp := &types.ApiResponse{}
+	err = proto.Unmarshal(resp.Body(), apiResp)
 	if err != nil {
+		fmt.Printf("error decoding api response: %s\n", err)
 		return err
 	}
-	if apiResp.Error != "" {
-		return fmt.Errorf("api error: %s", apiResp.Error)
+	switch r := apiResp.Resp.(type) {
+	case *types.ApiResponse_Error:
+		return apiError(r.Error.Details)
+	case *types.ApiResponse_Ok:
+		return nil
+	default:
+		return apiError("unexpected response type %T", r)
 	}
-	return nil
 }
 
 func (c *Client) PlayAudioRecording(recordingID string) error {
-	req := types.PlayAudioRecordingRequest{RecordingID: recordingID}
+	req := types.PlayAudioRecordingRequest{RecordingId: recordingID}
+	body, err := proto.Marshal(&req)
+	if err != nil {
+		return err
+	}
 
 	url := c.apiBaseUrl + "play-recording"
-	resp, err := c.rest.R().EnableTrace().
-		SetBody(req).
-		Post(url)
+	resp, err := c.rest.R().EnableTrace().SetBody(body).Post(url)
 
 	if err != nil {
 		return err
 	}
 
-	apiResp := &types.GenericResponse{}
-	err = json.Unmarshal(resp.Body(), apiResp)
+	apiResp := &types.ApiResponse{}
+	err = proto.Unmarshal(resp.Body(), apiResp)
 	if err != nil {
+		fmt.Printf("error decoding api response: %s\n", err)
 		return err
 	}
-	if apiResp.Error != "" {
-		return fmt.Errorf("api error: %s", apiResp.Error)
+	switch r := apiResp.Resp.(type) {
+	case *types.ApiResponse_Error:
+		return apiError(r.Error.Details)
+	case *types.ApiResponse_Ok:
+		return nil
+	default:
+		return apiError("unexpected response type %T", r)
 	}
-	return nil
 }
 
 func (c *Client) PublishMessage(msg *types.Message) error {
 	url := c.apiBaseUrl + "publish-message"
-	resp, err := c.rest.R().EnableTrace().
-		SetBody(msg).
-		Post(url)
+	body, err := proto.Marshal(msg)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.rest.R().EnableTrace().SetBody(body).Post(url)
 
 	if err != nil {
 		return err
 	}
 
-	apiResp := &types.GenericResponse{}
-	err = json.Unmarshal(resp.Body(), apiResp)
+	apiResp := &types.ApiResponse{}
+	err = proto.Unmarshal(resp.Body(), apiResp)
 	if err != nil {
+		fmt.Printf("error decoding api response: %s\n", err)
 		return err
 	}
-	if apiResp.Error != "" {
-		return fmt.Errorf("api error: %s", apiResp.Error)
+	switch r := apiResp.Resp.(type) {
+	case *types.ApiResponse_Error:
+		return apiError(r.Error.Details)
+	case *types.ApiResponse_Ok:
+		return nil
+	default:
+		return apiError("unexpected response type %T", r)
 	}
-	return nil
 }
 
 func (c *Client) GetUserInfo() (*types.UserInfo, error) {
@@ -126,7 +161,7 @@ func (c *Client) GetUserInfo() (*types.UserInfo, error) {
 	}
 
 	var info types.UserInfo
-	if err = json.Unmarshal(resp.Body(), &info); err != nil {
+	if err = proto.Unmarshal(resp.Body(), &info); err != nil {
 		return nil, err
 	}
 	return &info, nil
@@ -141,7 +176,7 @@ func removeScheme(url string) string {
 	return string(b)
 }
 
-func (c *Client) SubscribeEvents() (<-chan types.Event, func(), error) {
+func (c *Client) SubscribeEvents() (<-chan *types.Event, func(), error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
@@ -152,7 +187,7 @@ func (c *Client) SubscribeEvents() (<-chan types.Event, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	evtCh := make(chan types.Event, 1024)
+	evtCh := make(chan *types.Event, 1024)
 	stopCh := make(chan struct{})
 	cancelFn := func() {
 		stopCh <- struct{}{}
@@ -162,7 +197,7 @@ func (c *Client) SubscribeEvents() (<-chan types.Event, func(), error) {
 	return evtCh, cancelFn, nil
 }
 
-func (c *Client) readEvents(ws *websocket.Conn, evtCh chan types.Event, stopCh chan struct{}) {
+func (c *Client) readEvents(ws *websocket.Conn, evtCh chan *types.Event, stopCh chan struct{}) {
 	defer ws.Close(websocket.StatusNormalClosure, "")
 	for {
 		select {
@@ -172,12 +207,12 @@ func (c *Client) readEvents(ws *websocket.Conn, evtCh chan types.Event, stopCh c
 		}
 
 		var evt types.Event
-		err := wsjson.Read(context.Background(), ws, &evt)
+		err := wspb.Read(context.Background(), ws, &evt)
 		if err != nil {
 			fmt.Printf("error reading message from websocket: %s", err)
 			continue
 		}
 		fmt.Printf("read event from websocket: %v", evt)
-		evtCh <- evt
+		evtCh <- &evt
 	}
 }

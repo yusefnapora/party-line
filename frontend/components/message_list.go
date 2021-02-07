@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-type attachmentClickHandler func (attachment *types.MessageAttachment)
+type attachmentClickHandler func (attachment *types.Attachment)
 
 type MessageListView struct {
 	app.Compo
@@ -29,7 +29,7 @@ func (v *MessageListView) Render() app.UI {
 			msg := v.messages[i]
 			return &MessageView{
 				msg:      msg,
-				fromSelf: msg.Author.PeerID == v.localPeerID,
+				fromSelf: msg.Author.PeerId == v.localPeerID,
 				onAttachmentClick: v.onAttachmentClick,
 			}
 		}))
@@ -79,14 +79,14 @@ func (v *MessageView) Render() app.UI {
 
 			app.If(len(v.msg.Attachments) > 0, app.Range(v.msg.Attachments).Slice(func (i int) app.UI {
 				a := v.msg.Attachments[i]
-				return &MessageAttachmentView{attachment: &a, clickHandler: v.onAttachmentClick}
+				return &MessageAttachmentView{attachment: a, clickHandler: v.onAttachmentClick}
 			})))
 }
 
 
 type MessageAttachmentView struct {
 	app.Compo
-	attachment *types.MessageAttachment
+	attachment *types.Attachment
 	clickHandler attachmentClickHandler
 }
 

@@ -9,10 +9,10 @@ import (
 type PeerListView struct {
 	app.Compo
 
-	users []types.UserInfo
+	users []*types.UserInfo
 }
 
-func PeerList(users []types.UserInfo) *PeerListView {
+func PeerList(users []*types.UserInfo) *PeerListView {
 	return &PeerListView{
 		users: users,
 	}
@@ -27,14 +27,14 @@ func (v *PeerListView) Render() app.UI {
 		}))
 }
 
-func (v *PeerListView) SetUsers(users []types.UserInfo) {
+func (v *PeerListView) SetUsers(users []*types.UserInfo) {
 	v.users = users
 	v.Update()
 }
 
-func (v *PeerListView) AddUser(info types.UserInfo) {
+func (v *PeerListView) AddUser(info *types.UserInfo) {
 	for _, i := range v.users {
-		if i.PeerID == info.PeerID {
+		if i.PeerId == info.PeerId {
 			return
 		}
 	}
@@ -46,11 +46,11 @@ func (v *PeerListView) AddUser(info types.UserInfo) {
 type UserAvatarView struct {
 	app.Compo
 
-	user types.UserInfo
+	user *types.UserInfo
 	size int
 }
 
-func UserAvatar(info types.UserInfo, size int) *UserAvatarView {
+func UserAvatar(info *types.UserInfo, size int) *UserAvatarView {
 	return &UserAvatarView{
 		user: info,
 		size: size,
@@ -61,7 +61,7 @@ func (v *UserAvatarView) Render() app.UI {
 	// go-app doesn't have Svg tags, so we construct raw html
 	const cssClass = "user-avatar"
 	html := fmt.Sprintf(`<svg data-jdenticon-value="%s" width="%d" height="%d" class="%s">Avatar for %s</svg>`,
-		v.user.PeerID, v.size, v.size, cssClass, v.user.Nickname)
+		v.user.PeerId, v.size, v.size, cssClass, v.user.Nickname)
 
 	return app.Raw(html)
 }
@@ -69,16 +69,16 @@ func (v *UserAvatarView) Render() app.UI {
 type UserCardView struct {
 	app.Compo
 
-	user types.UserInfo
+	user *types.UserInfo
 }
 
-func UserCard(user types.UserInfo) *UserCardView {
+func UserCard(user *types.UserInfo) *UserCardView {
 	return &UserCardView{user: user}
 }
 
 func (v *UserCardView) Render() app.UI {
-	idlen := len(v.user.PeerID)
-	shortID := v.user.PeerID[idlen-8:idlen]
+	idlen := len(v.user.PeerId)
+	shortID := v.user.PeerId[idlen-8:idlen]
 
 	const aviSize = 64
 

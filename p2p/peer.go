@@ -19,8 +19,7 @@ import (
 	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/yusefnapora/party-line/api"
 	"github.com/yusefnapora/party-line/audio"
-	pb "github.com/yusefnapora/party-line/p2p/pb"
-	"github.com/yusefnapora/party-line/types"
+	pb "github.com/yusefnapora/party-line/types"
 	"sync"
 	"time"
 
@@ -33,12 +32,12 @@ const maxMessageSize = 1 << 20
 type PartyLinePeer struct {
 	host       host.Host
 
-	localUser  types.UserInfo
+	localUser  *pb.UserInfo
 	dispatcher *api.Dispatcher
 	audioStore *audio.Store
 
 	// the dispatcher pushes messages here to send out via libp2p
-	publishCh <-chan types.Message
+	publishCh <-chan *pb.Message
 
 	incomingMsgCh chan *pb.Message
 
@@ -46,7 +45,7 @@ type PartyLinePeer struct {
 	fanout map[string] chan *pb.Message
 }
 
-func NewPeer(dispatcher *api.Dispatcher, publishCh <-chan types.Message, audioStore *audio.Store, userNick string, blockLAN bool) (*PartyLinePeer, error) {
+func NewPeer(dispatcher *api.Dispatcher, publishCh <-chan *pb.Message, audioStore *audio.Store, userNick string, blockLAN bool) (*PartyLinePeer, error) {
 	relayId, err := peer.Decode("Qma71QQyJN7Sw7gz1cgJ4C66ubHmvKqBasSegKRugM5qo6")
 	if err != nil {
 		return nil, err
@@ -83,8 +82,8 @@ func NewPeer(dispatcher *api.Dispatcher, publishCh <-chan types.Message, audioSt
 		incomingMsgCh: make(chan *pb.Message, 1024),
 	}
 
-	peer.localUser = types.UserInfo{
-		PeerID:   h.ID().Pretty(),
+	peer.localUser = &pb.UserInfo{
+		PeerId:   h.ID().Pretty(),
 		Nickname: userNick,
 	}
 
@@ -190,7 +189,7 @@ func (p *PartyLinePeer) handleStream(s network.Stream, inbound bool) {
 	r := pbio.NewDelimitedReader(s, maxMessageSize)
 	w := pbio.NewDelimitedWriter(s)
 
-	var remoteUser *types.UserInfo
+	var remoteUser *pb.UserInfo
 	var err error
 
 	// inbound conns say hello first
@@ -220,7 +219,7 @@ func (p *PartyLinePeer) handleStream(s network.Stream, inbound bool) {
 	go p.readFromStream(r)
 
 	// get a new channel to receive outgoing messages on
-	pubCh := p.addFanoutListener(remoteUser.PeerID)
+	pubCh := p.addFanoutListener(remoteUser.PeerId)
 
 	// push any outgoing messages to the stream
 	for msg := range pubCh {
@@ -231,30 +230,20 @@ func (p *PartyLinePeer) handleStream(s network.Stream, inbound bool) {
 	}
 }
 
-func (p *PartyLinePeer) readHello(r pbio.Reader) (*pb.Hello, *types.UserInfo, error) {
+func (p *PartyLinePeer) readHello(r pbio.Reader) (*pb.Hello, *pb.UserInfo, error) {
 	var hello pb.Hello
 	if err := r.ReadMsg(&hello); err != nil {
 		fmt.Printf("error reading hello message: %s\n", err)
 		return nil, nil, err
 	}
 
-	userInfo, err := types.UserInfoFromPB(hello.User)
-	if err != nil {
-		fmt.Printf("error converting from pb: %s\n", err)
-		return nil, nil, err
-	}
-	p.dispatcher.PeerJoined(userInfo)
+	p.dispatcher.PeerJoined(hello.User)
 
-	return &hello, userInfo, nil
+	return &hello, hello.User, nil
 }
 
 func (p *PartyLinePeer) sayHello(w pbio.Writer) error {
-	user, err := p.localUser.ToPB()
-	if err != nil {
-		fmt.Printf("error encoding local user info: %s\n", err)
-		return err
-	}
-	hello := &pb.Hello{User: user}
+	hello := &pb.Hello{User: p.localUser}
 	return w.WriteMsg(hello)
 }
 
@@ -292,35 +281,22 @@ func (p *PartyLinePeer) removeFanoutListener(pidStr string) {
 
 func (p *PartyLinePeer) fanoutLoop() {
 	for msg := range p.publishCh {
-		fmt.Printf("converting msg to pb: %v\n", msg)
-		pbMsg, err := msg.ToPB()
-		if err != nil {
-			fmt.Printf("error converting msg to protobuf: %s", err)
-			continue
-		}
-
-		p.inlineAttachmentContent(pbMsg)
+		p.inlineAttachmentContent(msg)
 
 		p.fanoutLk.Lock()
 		for _, ch := range p.fanout {
-			ch <- pbMsg
+			ch <- msg
 		}
 		p.fanoutLk.Unlock()
 	}
 }
 
 func (p *PartyLinePeer) incomingMsgLoop() {
-	for pbMsg := range p.incomingMsgCh {
+	for msg := range p.incomingMsgCh {
 		//fmt.Printf("received message from incoming channel %v\n", pbMsg)
 
-		msg, err := types.MessageFromPB(pbMsg)
-		if err != nil {
-			fmt.Printf("error converting message from pb: %s\n", err)
-			continue
-		}
-
 		for _, a := range msg.Attachments {
-			if a.Type == types.AttachmentTypeAudioOpus && len(a.Content) > 0{
+			if a.Type == pb.AttachmentTypeAudioOpus && len(a.Content) > 0{
 				rec, err := audio.RecordingFromJSON(a.Content)
 				if err != nil {
 					fmt.Printf("error unpacking audio recording: %s\n", err)
@@ -331,13 +307,13 @@ func (p *PartyLinePeer) incomingMsgLoop() {
 			}
 		}
 
-		p.dispatcher.ReceiveMessage(*msg)
+		p.dispatcher.ReceiveMessage(msg)
 	}
 }
 
 func (p *PartyLinePeer) inlineAttachmentContent(msg *pb.Message) {
 	for _, a := range msg.Attachments {
-		if a.Type != types.AttachmentTypeAudioOpus {
+		if a.Type != pb.AttachmentTypeAudioOpus {
 			continue
 		}
 

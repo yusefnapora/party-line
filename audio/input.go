@@ -136,8 +136,8 @@ func (input *InputDevice) readOpus(stopCh <-chan struct{}, opusFrameCh chan []by
 	}
 }
 
-func ListInputDevices() []types.InputDeviceInfo {
-	var devices []types.InputDeviceInfo
+func ListInputDevices() []*types.InputDeviceInfo {
+	var devices []*types.InputDeviceInfo
 	for _, dev := range mediadevices.EnumerateDevices() {
 		if dev.Kind != mediadevices.AudioInput {
 			continue
@@ -149,8 +149,8 @@ func ListInputDevices() []types.InputDeviceInfo {
 		}
 
 		isDefault := defaultDeviceId == dev.Label
-		devices = append(devices, types.InputDeviceInfo{
-			DeviceID:  dev.Label,
+		devices = append(devices, &types.InputDeviceInfo{
+			DeviceId:  dev.Label,
 			Name:      name,
 			IsDefault: isDefault,
 		})
