@@ -1,7 +1,6 @@
 package components
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/maxence-charriere/go-app/v7/pkg/app"
 	"github.com/yusefnapora/party-line/client"
@@ -81,37 +80,9 @@ func (v *RootView) handleRemoteEvent(evt *types.Event) {
 
 func (v *RootView) handleAttachmentClick(a *types.Attachment) {
 	app.Log("attachment clicked %v", a)
-	if a.Type != types.AttachmentTypeAudioOpus {
-		return
-	}
-
 	if err := v.apiClient.PlayAudioRecording(a.Id); err != nil {
 		app.Log("error playing attachment: %s", err)
 	}
-}
-
-func msgFromMap(m map[string]interface{}) (*types.Message, error) {
-	bytes, err := json.Marshal(m)
-	if err != nil {
-		return nil, err
-	}
-	var msg types.Message
-	if err = json.Unmarshal(bytes, &msg); err != nil {
-		return nil, err
-	}
-	return &msg, nil
-}
-
-func userInfoFromMap(m map[string]interface{}) (*types.UserInfo, error) {
-	bytes, err := json.Marshal(m)
-	if err != nil {
-		return nil, err
-	}
-	var msg types.UserInfo
-	if err = json.Unmarshal(bytes, &msg); err != nil {
-		return nil, err
-	}
-	return &msg, nil
 }
 
 func (v *RootView) userJoined(info *types.UserInfo) {
@@ -205,8 +176,7 @@ func (v *RootView) onClick(ctx app.Context, e app.Event) {
 func (v *RootView) sendAudioMessage(recordingID string) error {
 	a := &types.Attachment{
 		Id:      recordingID,
-		Type:    types.AttachmentTypeAudioOpus,
-		Content: nil, // will be filled in on the server by matching the Recording ID
+		Kind: &types.Attachment_Audio{},
 	}
 
 	msg := types.Message{

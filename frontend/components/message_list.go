@@ -90,10 +90,6 @@ type MessageAttachmentView struct {
 }
 
 func (v *MessageAttachmentView) Render() app.UI {
-	if v.attachment.Type != types.AttachmentTypeAudioOpus {
-		return app.Div()
-	}
-
 	return app.Div().
 		Body(Icon("fas fa-file-audio")).OnClick(v.onClick)
 }

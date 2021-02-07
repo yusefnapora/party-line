@@ -294,14 +294,12 @@ func (p *PartyLinePeer) incomingMsgLoop() {
 		//fmt.Printf("received message from incoming channel %v\n", pbMsg)
 
 		for _, a := range msg.Attachments {
-			if a.Type == pb.AttachmentTypeAudioOpus && len(a.Content) > 0 {
-				rec, err := audio.RecordingFromJSON(a.Content)
-				if err != nil {
-					fmt.Printf("error unpacking audio recording: %s\n", err)
-				} else {
-					fmt.Printf("adding audio recording from message to store. recording id: %s\n", rec.ID)
-					p.audioStore.AddRecording(rec)
-				}
+			rec, err := recordingFromAttachment(a)
+			if err != nil {
+				fmt.Printf("error unpacking audio recording: %s\n", err)
+			} else {
+				fmt.Printf("adding audio recording from message to store. recording id: %s\n", rec.ID)
+				p.audioStore.AddRecording(rec)
 			}
 		}
 
@@ -309,24 +307,34 @@ func (p *PartyLinePeer) incomingMsgLoop() {
 	}
 }
 
+func recordingFromAttachment(a *pb.Attachment) (*audio.Recording, error) {
+	switch aa := a.Kind.(type) {
+	case *pb.Attachment_Audio:
+		rec := audio.Recording{
+			ID:     a.Id,
+			Frames: aa.Audio.Frames,
+		}
+		return &rec, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported attachment type %T", aa)
+	}
+}
+
 func (p *PartyLinePeer) inlineAttachmentContent(msg *pb.Message) {
 	for _, a := range msg.Attachments {
-		if a.Type != pb.AttachmentTypeAudioOpus {
-			continue
-		}
+		switch att := a.Kind.(type) {
+		case *pb.Attachment_Audio:
 
-		recording, ok := p.audioStore.GetRecording(a.Id)
-		if !ok {
-			fmt.Printf("no recording found with attachment id %s\n", a.Id)
-			continue
-		}
+			recording, ok := p.audioStore.GetRecording(a.Id)
+			if !ok {
+				fmt.Printf("no recording found with attachment id %s\n", a.Id)
+				continue
+			}
 
-		// converting the recording to json is ugly, but we're pressed for time :)
-		bytes, err := recording.ToJSON()
-		if err != nil {
-			continue
+			att.Audio.Codec = "audio/opus"
+			att.Audio.Frames = recording.Frames
 		}
-		a.Content = bytes
 	}
 }
 

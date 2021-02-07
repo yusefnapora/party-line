@@ -20,9 +20,17 @@ message Goodbye {
 
 // Attachment contains a byte string payload of a given type.
 message Attachment {
-  string type = 1;
-  string id = 2;
-  bytes content = 3;
+  string id = 1;
+
+  oneof kind {
+    AudioAttachment audio = 101;
+  }
+}
+
+message AudioAttachment {
+  string codec = 1;
+  int32 frame_size_ms = 2;
+  repeated bytes frames = 3;
 }
 
 // Message can have text and zero or more attachments.
