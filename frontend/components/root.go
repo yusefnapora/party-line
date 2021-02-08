@@ -184,7 +184,10 @@ func (v *RootView) onClick(ctx app.Context, e app.Event) {
 func (v *RootView) sendAudioMessage(recordingID string) error {
 	a := &types.Attachment{
 		Id:      recordingID,
-		Kind: &types.Attachment_Audio{},
+		Kind: &types.Attachment_Audio{Audio: &types.AudioAttachment{
+			Codec:       "audio/opus",
+			Frames:      nil, // will be filled in on the server before sending via libp2p
+		}},
 	}
 
 	msg := types.Message{
