@@ -167,6 +167,35 @@ func (c *Client) GetUserInfo() (*types.UserInfo, error) {
 	return &info, nil
 }
 
+func (c *Client) ConnectToPeer(peerLocator string) error {
+	url := c.apiBaseUrl + "connect-to-peer"
+	req := &types.ConnectToPeerRequest{PeerLocator: peerLocator}
+	body, err := proto.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.rest.R().EnableTrace().SetBody(body).Post(url)
+	if err != nil {
+		return err
+	}
+
+	apiResp := &types.ApiResponse{}
+	err = proto.Unmarshal(resp.Body(), apiResp)
+	if err != nil {
+		fmt.Printf("error decoding api response: %s\n", err)
+		return err
+	}
+	switch r := apiResp.Resp.(type) {
+	case *types.ApiResponse_Error:
+		return apiError(r.Error.Details)
+	case *types.ApiResponse_Ok:
+		return nil
+	default:
+		return apiError("unexpected response type %T", r)
+	}
+}
+
 func removeScheme(url string) string {
 	re, err := regexp.Compile("^http(s)?://")
 	if err != nil {

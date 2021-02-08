@@ -65,6 +65,11 @@ message PlayAudioRecordingRequest {
   string recording_id = 1;
 }
 
+message ConnectToPeerRequest {
+  // peer_locator is either a peer id or multiaddr with /p2p/ component
+  string peer_locator = 1;
+}
+
 
 message ApiResponse {
   oneof resp {
@@ -94,6 +99,7 @@ message Event {
     UserLeftEvent user_left = 102;
     MessageReceivedEvent message_received = 103;
     MessageSentEvent message_sent = 104;
+    ConnectToPeerRequestedEvent connect_to_peer_requested = 105;
   }
 }
 
@@ -111,4 +117,8 @@ message MessageReceivedEvent {
 
 message MessageSentEvent {
   Message message = 1;
+}
+
+message ConnectToPeerRequestedEvent {
+  ConnectToPeerRequest request = 1;
 }

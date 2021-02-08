@@ -22,6 +22,10 @@
     align-items: flex-start;
 }
 
+.new-peer-input {
+    min-width: 300px;
+}
+
 .user-card {
     display: flex;
     flex-direction: row;

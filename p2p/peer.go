@@ -20,6 +20,7 @@ import (
 	"github.com/yusefnapora/party-line/api"
 	"github.com/yusefnapora/party-line/audio"
 	pb "github.com/yusefnapora/party-line/types"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,6 +39,8 @@ type PartyLinePeer struct {
 
 	// the dispatcher pushes messages here to send out via libp2p
 	publishCh <-chan *pb.Message
+
+	eventCh <-chan *pb.Event
 
 	incomingMsgCh chan *pb.Message
 
@@ -89,8 +92,11 @@ func NewPeer(dispatcher *api.Dispatcher, publishCh <-chan *pb.Message, audioStor
 
 	h.SetStreamHandler(protocolID, peer.handleIncomingStream)
 
+	peer.eventCh = dispatcher.AddListener(fmt.Sprintf("peer-listener-%s", h.ID().Pretty()))
+
 	go peer.fanoutLoop()
 	go peer.incomingMsgLoop()
+	go peer.eventLoop()
 
 	sub, err := h.EventBus().Subscribe(new(event.EvtNATDeviceTypeChanged))
 	if err != nil {
@@ -164,6 +170,27 @@ func (p *PartyLinePeer) ConnectToPeer(pid peer.ID) error {
 
 	p.handleStream(s, false)
 	return nil
+}
+
+func (p *PartyLinePeer) ConnectToPeerStr(peerStr string) error {
+	fmt.Printf("ConnectToPeerStr: %s\n", peerStr)
+	if strings.Contains("/p2p/", peerStr) {
+		maddr, err := ma.NewMultiaddr(peerStr)
+		if err != nil {
+			return err
+		}
+		peerId, err := p.AddPeerAddr(maddr)
+		if err != nil {
+			return err
+		}
+		return p.ConnectToPeer(*peerId)
+	}
+
+	pid, err := peer.Decode(peerStr)
+	if err != nil {
+		return err
+	}
+	return p.ConnectToPeer(pid)
 }
 
 func (p *PartyLinePeer) AddPeerAddr(addr ma.Multiaddr) (*peer.ID, error) {
@@ -304,6 +331,26 @@ func (p *PartyLinePeer) incomingMsgLoop() {
 		}
 
 		p.dispatcher.ReceiveMessage(msg)
+	}
+}
+
+func (p *PartyLinePeer) eventLoop() {
+	for e := range p.eventCh {
+		switch evt := e.Evt.(type) {
+		case *pb.Event_ConnectToPeerRequested:
+			p.connectToPeerRequested(evt.ConnectToPeerRequested.Request)
+
+		default:
+			fmt.Printf("peer event loop ignoring event of type %T\n", evt)
+		}
+	}
+}
+
+
+func (p *PartyLinePeer) connectToPeerRequested(req *pb.ConnectToPeerRequest) {
+	if err := p.ConnectToPeerStr(req.PeerLocator); err != nil {
+		fmt.Printf("error connecting to peer: %s", err)
+		// TODO: push error action to dispatcher
 	}
 }
 

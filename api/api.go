@@ -103,6 +103,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	case "/user-info":
 		h.ServeUserInfo(w, r)
+
+	case "/connect-to-peer":
+		h.ConnectToPeer(w, r)
 	}
 }
 
@@ -124,7 +127,23 @@ func (h *Handler) ListPeers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ConnectToPeer(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "coming soon", 501)
+	if ensureMethod("POST", w, r) {
+		return
+	}
+
+	buf, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeErrorResponse(w, fmt.Sprintf("unmarshal error: %s", err), 400)
+		return
+	}
+	req := &types.ConnectToPeerRequest{}
+	if err := proto.Unmarshal(buf, req); err != nil {
+		writeErrorResponse(w, fmt.Sprintf("error decoding request: %s", err), 400)
+		return
+	}
+
+	h.dispatcher.ConnectToPeerRequested(req)
+	writeEmptyOk(w)
 }
 
 func (h *Handler) PublishMessage(w http.ResponseWriter, r *http.Request) {

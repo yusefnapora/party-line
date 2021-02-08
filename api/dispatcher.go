@@ -39,6 +39,14 @@ func (d *Dispatcher) PeerJoined(user *types.UserInfo) {
 	d.pushToListeners(evt)
 }
 
+func (d *Dispatcher) ConnectToPeerRequested(req *types.ConnectToPeerRequest) {
+	evt := &types.Event{
+		TimestampUnix: time.Now().Unix(),
+		Evt: &types.Event_ConnectToPeerRequested{ConnectToPeerRequested: &types.ConnectToPeerRequestedEvent{Request: req}},
+	}
+	d.pushToListeners(evt)
+}
+
 func (d *Dispatcher) SendMessage(msg *types.Message) {
 	d.outgoing <- msg
 }

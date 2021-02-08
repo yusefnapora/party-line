@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/maxence-charriere/go-app/v7/pkg/app"
-	ma "github.com/multiformats/go-multiaddr"
 	"github.com/yusefnapora/party-line/api"
 	"github.com/yusefnapora/party-line/audio"
 	"github.com/yusefnapora/party-line/p2p"
@@ -12,7 +10,6 @@ import (
 
 	"log"
 	"net/http"
-	"strings"
 )
 
 type PartyLineApp struct {
@@ -73,28 +70,7 @@ func (a *PartyLineApp) Start() {
 
 func (a *PartyLineApp) ConnectToPeers(pidStrs ...string) {
 	for _, p := range pidStrs {
-
-		var pid peer.ID
-		// treat peer id as a p2p multiadr if it starts with a slash
-		if strings.HasPrefix(p, "/") {
-			fmt.Printf("parsing addr str: %s\n", p)
-			maddr := ma.StringCast(p)
-			fmt.Printf("peer multiaddr: %s\n", maddr.String())
-			pidPtr, err := a.peer.AddPeerAddr(maddr)
-			if err != nil {
-				fmt.Printf("error adding peer addr: %s\n", err)
-			}
-			pid = *pidPtr
-		} else {
-			var err error
-			pid, err = peer.Decode(p)
-			if err != nil {
-				fmt.Printf("error parsing peer id: %s\n", err)
-				continue
-			}
-		}
-
-		if err := a.peer.ConnectToPeer(pid); err != nil {
+		if err := a.peer.ConnectToPeerStr(p); err != nil {
 			fmt.Printf("connection error: %s\n", err)
 		}
 	}

@@ -10,11 +10,14 @@ type PeerListView struct {
 	app.Compo
 
 	users []*types.UserInfo
+
+	newPeerRequested func(string)
 }
 
-func PeerList(users []*types.UserInfo) *PeerListView {
+func PeerList(users []*types.UserInfo, onNewPeerRequested func(string)) *PeerListView {
 	return &PeerListView{
 		users: users,
+		newPeerRequested: onNewPeerRequested,
 	}
 }
 
@@ -24,7 +27,19 @@ func (v *PeerListView) Render() app.UI {
 
 		app.Range(v.users).Slice(func(i int) app.UI {
 			return UserCard(v.users[i])
-		}))
+		}),
+
+		app.Input().Class("new-peer-input").
+			Placeholder("Enter a peer id / multiaddr to connect").OnChange(v.newPeerTextChanged),
+		)
+}
+
+func (v *PeerListView) newPeerTextChanged(ctx app.Context, e app.Event) {
+	text := ctx.JSSrc.Get("value").String()
+	if v.newPeerRequested != nil {
+		v.newPeerRequested(text)
+	}
+	ctx.JSSrc.Set("value", "")
 }
 
 func (v *PeerListView) SetUsers(users []*types.UserInfo) {

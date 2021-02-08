@@ -31,7 +31,7 @@ func Root(apiClient *client.Client, me *types.UserInfo) *RootView {
 		me:        me,
 	}
 	v.messageListView = MessageList(me.PeerId, nil, v.handleAttachmentClick)
-	v.peerListView = PeerList([]*types.UserInfo{me})
+	v.peerListView = PeerList([]*types.UserInfo{me}, v.handleNewPeerRequested)
 	return v
 }
 
@@ -66,7 +66,7 @@ func (v *RootView) readEvents(ctx app.Context) {
 }
 
 func (v *RootView) handleRemoteEvent(evt *types.Event) {
-	app.Log("remote event: %v", evt)
+	app.Log("remote event: %v\n", evt)
 
 	switch e := evt.Evt.(type) {
 	case *types.Event_MessageReceived:
@@ -81,7 +81,15 @@ func (v *RootView) handleRemoteEvent(evt *types.Event) {
 func (v *RootView) handleAttachmentClick(a *types.Attachment) {
 	app.Log("attachment clicked %v", a)
 	if err := v.apiClient.PlayAudioRecording(a.Id); err != nil {
-		app.Log("error playing attachment: %s", err)
+		app.Log("error playing attachment: %s\n", err)
+	}
+}
+
+func (v *RootView) handleNewPeerRequested(peerIdOrAddr string) {
+	app.Log("new peer requested by user: %s", peerIdOrAddr)
+
+	if err := v.apiClient.ConnectToPeer(peerIdOrAddr); err != nil {
+		app.Log("error requesting conn to peer: %s\n", err)
 	}
 }
 
