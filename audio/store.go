@@ -18,7 +18,7 @@ func NewStore() (*Store, error) {
 	// TODO: should probably open the device elsewhere and inject here
 	outputDevice, err := OpenOutputDevice(sampleRate)
 	if err != nil {
-		return nil, err
+		fmt.Printf("error initializing output device - audio playback will be disabled. error: %s\n", err)
 	}
 
 	return &Store{
@@ -47,6 +47,9 @@ func (s *Store) AddRecording(rec *Recording) {
 }
 
 func (s *Store) PlayRecording(id string) error {
+	if s.outputDevice == nil {
+		fmt.Printf("asked to play recording %s, but no output device.\n", id)
+	}
 	rec, ok := s.GetRecording(id)
 	if !ok {
 		return fmt.Errorf("no recording found with id %s", id)
