@@ -8,6 +8,7 @@ import (
 	"github.com/yusefnapora/party-line/audio"
 	"github.com/yusefnapora/party-line/types"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wspb"
@@ -131,7 +132,7 @@ func (h *Handler) ConnectToPeer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buf, err := io.ReadAll(r.Body)
+	buf, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		writeErrorResponse(w, fmt.Sprintf("unmarshal error: %s", err), 400)
 		return
@@ -151,7 +152,7 @@ func (h *Handler) PublishMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buf, err := io.ReadAll(r.Body)
+	buf, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		writeErrorResponse(w, fmt.Sprintf("unmarshal error: %s", err), 400)
 		return
@@ -204,7 +205,7 @@ func (h *Handler) StartRecording(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Printf("StartRecording\n")
-	body, err := io.ReadAll(r.Body)
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		writeErrorResponse(w, fmt.Sprintf("io error: %s", err), 400)
 	}
@@ -241,7 +242,7 @@ func (h *Handler) EndRecording(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		writeErrorResponse(w, fmt.Sprintf("io error: %s", err), 400)
 	}
@@ -264,7 +265,7 @@ func (h *Handler) PlayRecording(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		writeErrorResponse(w, fmt.Sprintf("io error: %s", err), 400)
 	}
