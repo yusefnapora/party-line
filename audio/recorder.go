@@ -40,7 +40,7 @@ const sampleRate = 48000
 func NewRecorder(store *Store) (*Recorder, error) {
 	inputDevice, err := OpenInputDevice(sampleRate)
 	if err != nil {
-		panic(err)
+		fmt.Printf("error initializing audio input. recording will be disabled. error: %s\n", err)
 	}
 
 	return &Recorder{
@@ -50,6 +50,10 @@ func NewRecorder(store *Store) (*Recorder, error) {
 }
 
 func (r *Recorder) BeginRecording(maxDuration time.Duration) (string, error) {
+	if r.inputDevice == nil {
+		return "", fmt.Errorf("no audio input device")
+	}
+
 	if r.recording.IsSet() {
 		return "", fmt.Errorf("recording already in progress")
 	}
