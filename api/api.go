@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/yusefnapora/party-line/audio"
 	"github.com/yusefnapora/party-line/types"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"nhooyr.io/websocket"
