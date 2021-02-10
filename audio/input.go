@@ -22,15 +22,17 @@ var defaultDeviceId string
 func init() {
 	var err error
 	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, func(message string) {
-		panic(fmt.Errorf("%v\n", message))
+		fmt.Printf("%v\n", message)
 	})
 	if err != nil {
-		panic(err)
+		fmt.Printf("error initializing audio input: %s\n", err)
+		return
 	}
 
 	devices, err := ctx.Devices(malgo.Capture)
 	if err != nil {
-		panic(err)
+		fmt.Printf("error enumerating input devices: %s\n", err)
+		return
 	}
 
 	deviceNames = make(map[string]string, len(devices))
